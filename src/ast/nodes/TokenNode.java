@@ -22,6 +22,7 @@ import ast.typesystem.inferencer.Inferencer;
 import ast.typesystem.types.BoolType;
 import ast.typesystem.types.IntType;
 import ast.typesystem.types.RealType;
+import ast.typesystem.types.StringType; // <-- ADDED (rename if your string type differs)
 import ast.typesystem.types.Type;
 import environment.Environment;
 import environment.TypeEnvironment;
@@ -76,6 +77,14 @@ public final class TokenNode extends SyntaxNode
             return Boolean.valueOf(true);
         case FALSE:
             return Boolean.valueOf(false);
+
+        // -------------------------
+        // ADDED: string literal eval
+        // -------------------------
+        case STRING: // <-- rename if your token type differs (STR, STRLIT, STRING_LIT, etc.)
+            // Assumes token.getValue() returns the string contents (commonly without quotes).
+            return token.getValue();
+
         case ID:
             Object val = env.lookup(token);
             if (val == null)
@@ -83,7 +92,6 @@ public final class TokenNode extends SyntaxNode
                 logError("undefined value " + token.getValue() + ".");
                 throw new EvaluationException();
             }
-
             return val;
         default:
             return token;
@@ -112,6 +120,13 @@ public final class TokenNode extends SyntaxNode
             return new BoolType();
         case FALSE:
             return new BoolType();
+
+        // -------------------------
+        // ADDED: string literal type
+        // -------------------------
+        case STRING: // <-- rename if your token type differs
+            return new StringType();
+
         case ID:
             Type tval = (Type) tenv.lookup(token);
 
