@@ -32,6 +32,11 @@ public enum TokenType
     REAL,
 
     /**
+     * A string literal token (e.g., "hello").
+     */
+    STRING,
+
+    /**
      * An identifier token.
      */
     ID,
@@ -190,6 +195,26 @@ public enum TokenType
      * The length of data types that support the operation.
      */
     LEN,
+
+    /**
+     * String length operation (for strings specifically).
+     */
+    STRLEN,
+
+    /**
+     * String concatenation operation (for strings specifically).
+     */
+    STRCAT,
+
+    /**
+     * Convert a string to a list of characters/strings.
+     */
+    STREXPLODE,
+
+    /**
+     * Substring operation (for strings specifically).
+     */
+    SUBSTR,
 
     /**
      * The if keyword.

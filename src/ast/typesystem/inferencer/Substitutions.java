@@ -23,6 +23,7 @@ import ast.typesystem.types.FunType;
 import ast.typesystem.types.IntType;
 import ast.typesystem.types.ListType;
 import ast.typesystem.types.RealType;
+import ast.typesystem.types.StringType;
 import ast.typesystem.types.Type;
 import ast.typesystem.types.VarType;
 import environment.TypeEnvironment;
@@ -31,8 +32,8 @@ import environment.TypeEnvironment;
  * This data structure tracks the substitution map created by the unification algorithm.
  */
 public class Substitutions {
-    
-    private HashMap<VarType, Type> subst;           // The substituion map.
+
+    private HashMap<VarType, Type> subst; // The substituion map.
 
     /**
      * Construct a new substitution.
@@ -46,7 +47,7 @@ public class Substitutions {
      * Converts the type to an externalizable form. This is a form where type
      * variables are rewritten so that they start with the smallest serial
      * number possible.
-     * 
+     *
      * @param type the type to externalize.
      * @return the externalized form of the type.
      */
@@ -59,7 +60,7 @@ public class Substitutions {
     /**
      * This method takes and applies the known substitutions to the given type
      * returning a potentially new type.
-     * 
+     *
      * @param type the type to apply the substitution to.
      * @return a new type.
      */
@@ -67,14 +68,13 @@ public class Substitutions {
     {
         // No substitution is needed in this case.
         if (type instanceof BoolType || type instanceof IntType
-                || type instanceof RealType)
+                || type instanceof RealType || type instanceof StringType)
             return type;
 
         // Handle the list type.
         else if (type instanceof ListType)
         {
-            return new ListType(
-                    apply(((ListType) type).getElementType()));
+            return new ListType(apply(((ListType) type).getElementType()));
         }
 
         // Handle the var type.
@@ -99,16 +99,16 @@ public class Substitutions {
     /**
      * Add the substition to the map of known substitutions and cascade the new
      * information.
-     * 
+     *
      * @param tv      the type variable to substitute
      * @param newType the new type for tv.
      */
-    public void updateSubstitutions(VarType tv, Type newType) {
+    public void updateSubstitutions(VarType tv, Type newType)
+    {
         // Propigate the substitution information tv := newType into
         // the existing rules.
         for (VarType lhs : subst.keySet())
-            subst.replace(lhs,
-                    propagateSubstitution(tv, newType, subst.get(lhs)));
+            subst.replace(lhs, propagateSubstitution(tv, newType, subst.get(lhs)));
 
         // Add the new type information to the substitution map.
         subst.put(tv, newType);
@@ -116,18 +116,19 @@ public class Substitutions {
 
     /**
      * Get the string form of the substition
-     * 
+     *
      * @return A string representation of the known substitutions.
      */
     @Override
-    public String toString() {
+    public String toString()
+    {
         return "Substitutions: " + subst;
     }
 
     /**
      * Propigates the new type information to the rest of the substitutions.
      * This method potentially updates the substitutions.
-     * 
+     *
      * @param tv       the type variable with a new substitiution
      * @param newType  the new substitution
      * @param currType the current type (before new substitution information is
@@ -135,66 +136,69 @@ public class Substitutions {
      * @return A new type that takes into account the new type information tv :=
      *         newType.
      */
-    private Type propagateSubstitution(VarType tv, Type newType, Type currType) {
-
+    private Type propagateSubstitution(VarType tv, Type newType, Type currType)
+    {
         // No variable in this rhs just return.
         if (currType instanceof IntType || currType instanceof RealType
-                || currType instanceof BoolType)
+                || currType instanceof BoolType || currType instanceof StringType)
             return currType;
 
         // Handle function substitutions.
-        else if (currType instanceof FunType) {
+        else if (currType instanceof FunType)
+        {
             return new FunType(
-                    propagateSubstitution(tv, newType,
-                            ((FunType) currType).getArgType()),
-                    propagateSubstitution(tv, newType,
-                            ((FunType) currType).getBodyType()));
+                    propagateSubstitution(tv, newType, ((FunType) currType).getArgType()),
+                    propagateSubstitution(tv, newType, ((FunType) currType).getBodyType()));
         }
 
         // Handle variable substitutions.
-        else if (currType instanceof VarType) {
-            if (tv.equals((VarType) currType)) {
+        else if (currType instanceof VarType)
+        {
+            if (tv.equals((VarType) currType))
+            {
                 if (newType instanceof VarType)
                     ((VarType) newType).copyConstraints(tv);
                 return newType;
-            } else
+            }
+            else
                 return currType;
         }
 
         // Handle list substitutions.
-        else if (currType instanceof ListType) {
+        else if (currType instanceof ListType)
+        {
             return new ListType(propagateSubstitution(tv, newType,
                     ((ListType) currType).getElementType()));
         }
 
         // When in doubt, do nothing.
         return currType;
-
     }
 
     /**
      * A private helper for actually carrying out the externalization work.
-     * 
+     *
      * @param exSubst the externalized substitution map.
      * @param tenv    the type environment which is only used for generating fresh
      *                type variables.
      * @param type    the type to externalize.
      */
     private Type externalizeHelper(HashMap<VarType, VarType> exSubst, TypeEnvironment tenv,
-            Type type) {
-        // If we have a non type variable we are fine there is nothing
-        // to do.
+            Type type)
+    {
+        // If we have a non type variable we are fine there is nothing to do.
         if (type instanceof BoolType || type instanceof IntType
-                || type instanceof RealType)
+                || type instanceof RealType || type instanceof StringType)
             return type;
 
         // Handle the list type.
         else if (type instanceof ListType)
-            return new ListType(
-                    externalizeHelper(exSubst, tenv, ((ListType) type).getElementType()));
+            return new ListType(externalizeHelper(exSubst, tenv,
+                    ((ListType) type).getElementType()));
 
         // Handle the var type.
-        else if (type instanceof VarType) {
+        else if (type instanceof VarType)
+        {
             if (exSubst.containsKey((VarType) type))
                 return exSubst.get((VarType) type);
 
@@ -203,11 +207,13 @@ public class Substitutions {
         }
 
         // Handle the function type.
-        else if (type instanceof FunType) {
+        else if (type instanceof FunType)
+        {
             return new FunType(
                     externalizeHelper(exSubst, tenv, (((FunType) type).getArgType())),
                     externalizeHelper(exSubst, tenv, ((FunType) type).getBodyType()));
-        } else
+        }
+        else
             return null;
     }
 }
