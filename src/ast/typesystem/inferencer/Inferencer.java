@@ -23,6 +23,7 @@ import ast.typesystem.types.IntType;
 import ast.typesystem.types.ListType;
 import ast.typesystem.types.RealType;
 import ast.typesystem.types.StringType;
+import ast.typesystem.types.TupleType;
 import ast.typesystem.types.Type;
 import ast.typesystem.types.VarType;
 
@@ -37,6 +38,11 @@ import ast.typesystem.types.VarType;
 public class Inferencer
 {
     private Substitutions subst; // The current type equation solutions.
+
+    // OPTIONAL DEBUGGING:
+    // Set to true if you need to confirm which Inferencer.class is running and
+    // what runtime types are being unified. Keep false for normal test runs.
+    private static final boolean DEBUG_UNIFY = false;
 
     /**
      * The default constructor builds a new type substitution.
@@ -80,6 +86,12 @@ public class Inferencer
      */
     public void unify(Type type1, Type type2, String msg) throws TypeException
     {
+        if (DEBUG_UNIFY)
+        {
+            System.out.println("RUNNING Inferencer.unify from: "
+                    + Inferencer.class.getProtectionDomain().getCodeSource());
+        }
+
         // Apply the known substitutions.
         type1 = subst.apply(type1);
         type2 = subst.apply(type2);
@@ -127,6 +139,21 @@ public class Inferencer
                     ((ListType) type2).getElementType(), msg);
         }
 
+        // Unify tuple types.
+        else if (type1 instanceof TupleType && type2 instanceof TupleType)
+        {
+            TupleType t1 = (TupleType) type1;
+            TupleType t2 = (TupleType) type2;
+
+            // Tuple arity must match.
+            if (t1.size() != t2.size())
+                throw new TypeException("Unification failed: " + msg);
+
+            // Unify each element type in order.
+            for (int i = 0; i < t1.size(); i++)
+                unify(t1.get(i), t2.get(i), msg);
+        }
+
         /*
          * NOTE:
          * For atomic types (int/real/bool/string), equality is handled by the
@@ -135,7 +162,14 @@ public class Inferencer
          */
 
         else
+        {
+            if (DEBUG_UNIFY)
+            {
+                System.out.println("DEBUG unify failing types: "
+                        + type1.getClass() + " vs " + type2.getClass());
+            }
             throw new TypeException("Unification failed: " + msg);
+        }
     }
 
     /**
@@ -164,6 +198,16 @@ public class Inferencer
         else if (ty instanceof ListType)
         {
             return noOccurrence(tv, ((ListType) ty).getElementType());
+        }
+        else if (ty instanceof TupleType)
+        {
+            TupleType tt = (TupleType) ty;
+            for (int i = 0; i < tt.size(); i++)
+            {
+                if (!noOccurrence(tv, tt.get(i)))
+                    return false;
+            }
+            return true;
         }
 
         return false;
