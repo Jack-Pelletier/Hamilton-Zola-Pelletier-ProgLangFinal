@@ -17,6 +17,7 @@
 package ast.nodes;
 
 import java.util.LinkedList;
+import java.util.List;
 
 import ast.EvaluationException;
 import ast.typesystem.TypeException;
@@ -66,7 +67,8 @@ public final class ListNode extends SyntaxNode
 
         // The type of the list is the type of the first element
         // of the list.
-        firstVal = entries.getFirst().evaluate(env);
+        SyntaxNode firstNode = entries.getFirst();
+        firstVal = firstNode.evaluate(env);
 
         if (firstVal instanceof TokenNode)
         {
@@ -78,8 +80,18 @@ public final class ListNode extends SyntaxNode
             lst.add(firstVal);
         else if (firstVal instanceof LinkedList)
         {
-            logError("nested lists not supported.");
-            throw new EvaluationException();
+            
+            if (firstNode instanceof ListNode)
+            {
+                logError("nested lists not supported.");
+                throw new EvaluationException();
+            }
+            lst.add(firstVal);
+        }
+        else if (firstVal instanceof List)
+        {
+            // Allow tuple values  as list elements.
+            lst.add(firstVal);
         }
         else
         {
@@ -91,13 +103,22 @@ public final class ListNode extends SyntaxNode
         // is of the correct type, we add it to the current list.
         for (int i = 1; i < entries.size(); i++)
         {
-            currVal = entries.get(i).evaluate(env);
+            SyntaxNode currNode = entries.get(i);
+            currVal = currNode.evaluate(env);
 
             if (!(currVal instanceof Integer) && !(currVal instanceof Double)
                     && !(currVal instanceof LinkedList)
-                    && !(currVal instanceof Boolean))
+                    && !(currVal instanceof Boolean)
+                    && !(currVal instanceof List))
             {
                 logError("unknown element type.");
+                throw new EvaluationException();
+            }
+
+           
+            if (currVal instanceof LinkedList && currNode instanceof ListNode)
+            {
+                logError("nested lists not supported.");
                 throw new EvaluationException();
             }
 
