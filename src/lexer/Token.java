@@ -23,8 +23,8 @@ package lexer;
  */
 public class Token
 {
-    private String val; // The value of the token.
-    private TokenType type; // The type of token represented.
+    private String val;      // The value of the token.
+    private TokenType type;  // The type of token represented.
 
     /**
      * This is the default constructor.
@@ -33,7 +33,6 @@ public class Token
     {
         val = "";
         type = TokenType.UNKNOWN;
-
     }
 
     /**
@@ -90,7 +89,10 @@ public class Token
 
     /**
      * Determines if two tokens are equal.
-     * 
+     *
+     * NOTE: I kept your original behavior (value-only equality) to avoid breaking
+     * existing tests that might rely on it.
+     *
      * @return true if they are equal and false otherwise.
      */
     @Override
@@ -125,6 +127,9 @@ public class Token
             return "INT(" + val + ")";
         case REAL:
             return "REAL(" + val + ")";
+        case STRING:
+            return "STRING(" + val + ")";
+
         case ADD:
             return "ADD";
         case SUB:
@@ -187,6 +192,17 @@ public class Token
             return "CONCAT";
         case LEN:
             return "LEN";
+
+        // --- String-specific operations ---
+        case SUBSTR:
+            return "SUBSTR";
+        case STRLEN:
+            return "STRLEN";
+        case STRCAT:
+            return "STRCAT";
+        case STREXPLODE:
+            return "STREXPLODE";
+
         case IF:
             return "IF";
         case THEN:
