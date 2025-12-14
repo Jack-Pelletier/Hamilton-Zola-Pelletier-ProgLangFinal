@@ -17,6 +17,8 @@
 package ast.typesystem.inferencer;
 
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 
 import ast.typesystem.types.BoolType;
 import ast.typesystem.types.FunType;
@@ -24,6 +26,7 @@ import ast.typesystem.types.IntType;
 import ast.typesystem.types.ListType;
 import ast.typesystem.types.RealType;
 import ast.typesystem.types.StringType;
+import ast.typesystem.types.TupleType;
 import ast.typesystem.types.Type;
 import ast.typesystem.types.VarType;
 import environment.TypeEnvironment;
@@ -75,6 +78,19 @@ public class Substitutions {
         else if (type instanceof ListType)
         {
             return new ListType(apply(((ListType) type).getElementType()));
+        }
+
+        // Handle tuple types.
+        else if (type instanceof TupleType)
+        {
+            TupleType tt = (TupleType) type;
+            List<Type> els = tt.getElementTypes();
+
+            LinkedList<Type> newEls = new LinkedList<Type>();
+            for (Type t : els)
+                newEls.add(apply(t));
+
+            return new TupleType(newEls);
         }
 
         // Handle the var type.
@@ -171,6 +187,19 @@ public class Substitutions {
                     ((ListType) currType).getElementType()));
         }
 
+        // Handle tuple substitutions.
+        else if (currType instanceof TupleType)
+        {
+            TupleType tt = (TupleType) currType;
+            List<Type> els = tt.getElementTypes();
+
+            LinkedList<Type> newEls = new LinkedList<Type>();
+            for (Type t : els)
+                newEls.add(propagateSubstitution(tv, newType, t));
+
+            return new TupleType(newEls);
+        }
+
         // When in doubt, do nothing.
         return currType;
     }
@@ -195,6 +224,19 @@ public class Substitutions {
         else if (type instanceof ListType)
             return new ListType(externalizeHelper(exSubst, tenv,
                     ((ListType) type).getElementType()));
+
+        // Handle tuple types.
+        else if (type instanceof TupleType)
+        {
+            TupleType tt = (TupleType) type;
+            List<Type> els = tt.getElementTypes();
+
+            LinkedList<Type> newEls = new LinkedList<Type>();
+            for (Type t : els)
+                newEls.add(externalizeHelper(exSubst, tenv, t));
+
+            return new TupleType(newEls);
+        }
 
         // Handle the var type.
         else if (type instanceof VarType)

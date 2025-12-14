@@ -119,10 +119,9 @@ public class Lexer
 
         // Handles all special character symbols (including strings).
         case OTHER:
-    if (stream.getCurrentChar() == '"')
-        return consumeStringLiteral();
-    return lookup();
-
+            if (stream.getCurrentChar() == '"')
+                return consumeStringLiteral();
+            return lookup();
 
         // We reached the end of our input.
         case END:
@@ -149,86 +148,85 @@ public class Lexer
      ************/
 
     /**
- * Consumes a string literal beginning with '"'.
- * Supports: \n, \t, \r, \", \\
- * Returns STRING token value WITHOUT surrounding quotes.
- *
- * IMPORTANT:
- * This must follow the same "read one char too far then skipNextAdvance()"
- * convention as the INT/REAL/ID scanners, because nextToken() always begins with
- * advanceToNonBlank() which calls advance() once.
- */
-private Token consumeStringLiteral()
-{
-    StringBuilder sb = new StringBuilder();
-
-    // Current char is the opening quote '"'
-    // Move to the first character inside the string
-    stream.advance();
-
-    // Read until we hit the closing quote
-    while (stream.getCurrentClass() != CharacterClass.END
-            && stream.getCurrentChar() != '"')
+     * Consumes a string literal beginning with '"'.
+     * Supports: \n, \t, \r, \", \\
+     * Returns STRING token value WITHOUT surrounding quotes.
+     *
+     * IMPORTANT:
+     * This must follow the same "read one char too far then skipNextAdvance()"
+     * convention as the INT/REAL/ID scanners, because nextToken() always begins with
+     * advanceToNonBlank() which calls advance() once.
+     */
+    private Token consumeStringLiteral()
     {
-        char c = stream.getCurrentChar();
+        StringBuilder sb = new StringBuilder();
 
-        if (c == '\\')
+        // Current char is the opening quote '"'
+        // Move to the first character inside the string
+        stream.advance();
+
+        // Read until we hit the closing quote
+        while (stream.getCurrentClass() != CharacterClass.END
+                && stream.getCurrentChar() != '"')
         {
-            // Escape sequence: move to escaped char
-            stream.advance();
+            char c = stream.getCurrentChar();
 
-            if (stream.getCurrentClass() == CharacterClass.END)
-                return new Token(TokenType.EOF, "Unterminated string literal.");
-
-            char esc = stream.getCurrentChar();
-            switch (esc)
+            if (c == '\\')
             {
-            case 'n':
-                sb.append('\n');
-                break;
-            case 't':
-                sb.append('\t');
-                break;
-            case 'r':
-                sb.append('\r');
-                break;
-            case '"':
-                sb.append('"');
-                break;
-            case '\\':
-                sb.append('\\');
-                break;
-            default:
-                // Unknown escape: treat as literal escaped char
-                sb.append(esc);
-                break;
+                // Escape sequence: move to escaped char
+                stream.advance();
+
+                if (stream.getCurrentClass() == CharacterClass.END)
+                    return new Token(TokenType.EOF, "Unterminated string literal.");
+
+                char esc = stream.getCurrentChar();
+                switch (esc)
+                {
+                case 'n':
+                    sb.append('\n');
+                    break;
+                case 't':
+                    sb.append('\t');
+                    break;
+                case 'r':
+                    sb.append('\r');
+                    break;
+                case '"':
+                    sb.append('"');
+                    break;
+                case '\\':
+                    sb.append('\\');
+                    break;
+                default:
+                    // Unknown escape: treat as literal escaped char
+                    sb.append(esc);
+                    break;
+                }
+
+                // Advance to next character after the escape
+                stream.advance();
+                continue;
             }
 
-            // Advance to next character after the escape
+            sb.append(c);
             stream.advance();
-            continue;
         }
 
-        sb.append(c);
+        // If we hit EOF before closing quote, it's an unterminated string
+        if (stream.getCurrentClass() == CharacterClass.END)
+            return new Token(TokenType.EOF, "Unterminated string literal.");
+
+        // We are currently sitting ON the closing quote '"'
+        // Advance ONE char past it, so the next token begins there.
         stream.advance();
+
+        // But: nextToken() begins by calling advanceToNonBlank() which calls advance()
+        // once immediately. That would skip the first char after the quote unless we
+        // "un-read" it using skipNextAdvance().
+        stream.skipNextAdvance();
+
+        return new Token(TokenType.STRING, sb.toString());
     }
-
-    // If we hit EOF before closing quote, it's an unterminated string
-    if (stream.getCurrentClass() == CharacterClass.END)
-        return new Token(TokenType.EOF, "Unterminated string literal.");
-
-    // We are currently sitting ON the closing quote '"'
-    // Advance ONE char past it, so the next token begins there.
-    stream.advance();
-
-    // But: nextToken() begins by calling advanceToNonBlank() which calls advance()
-    // once immediately. That would skip the first char after the quote unless we
-    // "un-read" it using skipNextAdvance().
-    stream.skipNextAdvance();
-
-    return new Token(TokenType.STRING, sb.toString());
-}
-
 
     /**
      * Processes the next character and return the resulting token.
@@ -384,7 +382,11 @@ private Token consumeStringLiteral()
         keywords.put("explode", TokenType.STREXPLODE);
         keywords.put("substr", TokenType.SUBSTR);
 
-        
+        // NEW: tuple operations (keywords)
+        // Tuple literals use existing tokens: LPAREN, COMMA, RPAREN
+        // Tuple destructuring uses existing LET syntax: let (x, y) = ... in ...
+        keywords.put("proj", TokenType.TUPLEPROJ);
+        keywords.put("swap", TokenType.TUPLESWAP);
     }
 
     /**

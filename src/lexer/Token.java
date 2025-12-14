@@ -203,6 +203,13 @@ public class Token
         case STREXPLODE:
             return "STREXPLODE";
 
+        // --- Tuple-specific operations ---
+        case TUPLEPROJ:
+            return "TUPLE_PROJ";
+        case TUPLESWAP:
+            return "TUPLE_SWAP";
+        
+
         case IF:
             return "IF";
         case THEN:
