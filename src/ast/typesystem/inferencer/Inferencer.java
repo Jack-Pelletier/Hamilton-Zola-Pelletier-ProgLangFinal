@@ -22,6 +22,7 @@ import ast.typesystem.types.FunType;
 import ast.typesystem.types.IntType;
 import ast.typesystem.types.ListType;
 import ast.typesystem.types.RealType;
+import ast.typesystem.types.StringType;
 import ast.typesystem.types.Type;
 import ast.typesystem.types.VarType;
 
@@ -35,9 +36,8 @@ import ast.typesystem.types.VarType;
  */
 public class Inferencer
 {
-    private Substitutions subst; // The current type equation
-                                          // solutions.
-    
+    private Substitutions subst; // The current type equation solutions.
+
     /**
      * The default constructor builds a new type substitution.
      */
@@ -59,6 +59,7 @@ public class Inferencer
 
     /**
      * Get the substitution map from the inferencer.
+     * 
      * @return the substition map of the inferencer.
      */
     public Substitutions getSubstitutions()
@@ -85,7 +86,7 @@ public class Inferencer
 
         if (type1 == null || type2 == null)
             throw new TypeException("Invalid type or unknown value.");
-            
+
         // The types are equal nothing else to do.
         if (type1.equals(type2))
             return;
@@ -126,6 +127,13 @@ public class Inferencer
                     ((ListType) type2).getElementType(), msg);
         }
 
+        /*
+         * NOTE:
+         * For atomic types (int/real/bool/string), equality is handled by the
+         * type1.equals(type2) check above. If StringType.equals is implemented
+         * like IntType.equals (instanceof), it will unify correctly.
+         */
+
         else
             throw new TypeException("Unification failed: " + msg);
     }
@@ -142,7 +150,7 @@ public class Inferencer
     private boolean noOccurrence(VarType tv, Type ty)
     {
         if (ty instanceof IntType || ty instanceof RealType
-                || ty instanceof BoolType)
+                || ty instanceof BoolType || ty instanceof StringType)
             return true;
         else if (ty instanceof FunType)
         {
@@ -160,5 +168,4 @@ public class Inferencer
 
         return false;
     }
-
 }
