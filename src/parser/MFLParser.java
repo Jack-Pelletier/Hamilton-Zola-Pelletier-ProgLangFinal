@@ -40,6 +40,10 @@ import ast.nodes.SubstrNode;
 import ast.nodes.SyntaxNode;
 import ast.nodes.TailNode;
 import ast.nodes.TokenNode;
+import ast.nodes.TupleDestructNode;
+import ast.nodes.TupleNode;
+import ast.nodes.TupleProjNode;
+import ast.nodes.TupleSwapNode;
 import ast.nodes.UnaryOpNode;
 import ast.nodes.ValNode;
 import lexer.Lexer;
@@ -372,6 +376,37 @@ public class MFLParser extends Parser
         return null;
     }
 
+    // ---- Tuple builtins by TokenType (works if lexer maps keywords) ----
+
+    else if (checkMatch(TokenType.TUPLEPROJ))
+    {
+        if (match(TokenType.LPAREN, "("))
+        {
+            Token idxTok = getCurrToken();
+            if (!match(TokenType.INT, "integer"))
+                return null;
+
+            int idx = Integer.parseInt(idxTok.getValue());
+
+            SyntaxNode t = getGoodParse(evalExpr());
+
+            if (match(TokenType.RPAREN, ")"))
+                return new TupleProjNode(idx, t, getCurrLine());
+        }
+        return null;
+    }
+
+    else if (checkMatch(TokenType.TUPLESWAP))
+    {
+        if (match(TokenType.LPAREN, "("))
+        {
+            fact = getGoodParse(evalExpr());
+            if (match(TokenType.RPAREN, ")"))
+                return new TupleSwapNode(fact, getCurrLine());
+        }
+        return null;
+    }
+
     // ---- String builtins by TokenType (works if lexer maps keywords) ----
 
     else if (checkMatch(TokenType.STRLEN))
@@ -474,12 +509,34 @@ public class MFLParser extends Parser
     // Parenthsized expression -- could be a call could just be precedence adjusting.
     else if (checkMatch(TokenType.LPAREN))
     {
-        fact = getGoodParse(evalExpr());
+        SyntaxNode first = getGoodParse(evalExpr());
+
+        if (checkMatch(TokenType.COMMA))
+        {
+            LinkedList<SyntaxNode> elems = new LinkedList<>();
+            elems.add(first);
+
+            // We already consumed the first comma. Now parse the remaining elements.
+            SyntaxNode nxt = getGoodParse(evalExpr());
+            elems.add(nxt);
+
+            while (checkMatch(TokenType.COMMA))
+            {
+                SyntaxNode more = getGoodParse(evalExpr());
+                elems.add(more);
+            }
+
+            match(TokenType.RPAREN, ")");
+            return new TupleNode(elems, getCurrLine());
+        }
+
         match(TokenType.RPAREN, ")");
 
         // Is this a function call?
         if (checkMatch(TokenType.LPAREN))
-            return handleCall(fact);
+            return handleCall(first);
+
+        return first;
     }
 
     // Handle the literals.
@@ -530,6 +587,41 @@ public class MFLParser extends Parser
         }
     }
 
+    // ---- Tuple builtin fallback when lexer returns ID(...) ----
+    else if (tokenIs(TokenType.ID) && isTupleBuiltinName(getCurrToken().getValue()))
+    {
+        String name = getCurrToken().getValue();
+        nextToken(); // consume the ID
+
+        if (!match(TokenType.LPAREN, "("))
+            return null;
+
+        if (name.equals("swap"))
+        {
+            SyntaxNode t = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            return new TupleSwapNode(t, getCurrLine());
+        }
+        else if (name.equals("proj"))
+        {
+            Token idxTok = getCurrToken();
+            if (!match(TokenType.INT, "integer"))
+                return null;
+
+            int idx = Integer.parseInt(idxTok.getValue());
+
+            SyntaxNode t = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            return new TupleProjNode(idx, t, getCurrLine());
+        }
+        else // destruct
+        {
+            SyntaxNode t = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            return new TupleDestructNode(t, getCurrLine());
+        }
+    }
+
     // Handle an identifier could be:
     //  - just the identifier
     //  - a function call.
@@ -554,6 +646,11 @@ public class MFLParser extends Parser
 private boolean isStringBuiltinName(String s)
 {
     return "strlen".equals(s) || "strcat".equals(s) || "explode".equals(s) || "substr".equals(s);
+}
+
+private boolean isTupleBuiltinName(String s)
+{
+    return "proj".equals(s) || "swap".equals(s) || "destruct".equals(s);
 }
 
 
