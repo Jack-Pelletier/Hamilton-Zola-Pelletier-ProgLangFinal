@@ -192,6 +192,16 @@ public enum TokenType
     COMMA,
 
     /**
+     * Tuple projection operation keyword (e.g., proj 0 (1,2)).
+     */
+    TUPLEPROJ,
+
+    /**
+     * Tuple swap operation keyword (e.g., swap (1,2) -> (2,1)).
+     */
+    TUPLESWAP,
+
+    /**
      * The length of data types that support the operation.
      */
     LEN,
