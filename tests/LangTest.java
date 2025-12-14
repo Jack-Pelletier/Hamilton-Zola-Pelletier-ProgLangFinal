@@ -20,18 +20,18 @@ import static org.junit.Assert.assertFalse;
 import ast.EvaluationException;
 import ast.SyntaxTree;
 import ast.typesystem.TypeException;
-import parser.ParseException;
 import parser.MFLParser;
+import parser.ParseException;
 
 /**
  * A super class for all language tests.
  */
-public class LangTest {
-    
+public class LangTest
+{
     /**
-     * Evaluate the expression and return the result as a string or throw and
+     * Evaluate the expression and return the result as a string or throw an
      * exception if it does not succeed.
-     * 
+     *
      * @param name      the name of the test.
      * @param statement the statement to evaluate.
      * @param expected  the expected output of the test.
@@ -40,11 +40,17 @@ public class LangTest {
     {
         MFLParser p = new MFLParser(statement);
         SyntaxTree ast = null;
-        try {
+
+        try
+        {
             ast = p.parse();
-        } catch (ParseException e) {
+        }
+        catch (ParseException e)
+        {
+            e.printStackTrace();
             assertFalse(name + ": Bad parse " + e, true);
         }
+
         Object res = null;
 
         try
@@ -53,8 +59,8 @@ public class LangTest {
         }
         catch (EvaluationException ex)
         {
-            assertFalse(name + ": Unexpected Exception.", true);
-            System.out.println(ex);
+            ex.printStackTrace(); // FULL STACK TRACE
+            throw new AssertionError(name + ": Unexpected Exception.", ex);
         }
 
         assertEquals(name + ":", expected, res.toString());
@@ -62,8 +68,8 @@ public class LangTest {
 
     /**
      * Evaluate the type of the expression and return the result as a string or
-     * throw and exception if it does not succeed.
-     * 
+     * throw an exception if it does not succeed.
+     *
      * @param name      the name of the test.
      * @param statement the statement to evaluate.
      * @param expected  the expected output of the test.
@@ -72,11 +78,17 @@ public class LangTest {
     {
         MFLParser p = new MFLParser(statement);
         SyntaxTree ast = null;
-        try {
+
+        try
+        {
             ast = p.parse();
-        } catch (ParseException e) {
+        }
+        catch (ParseException e)
+        {
+            e.printStackTrace();
             assertFalse(name + ": Bad parse " + e, true);
         }
+
         Object res = null;
 
         try
@@ -85,8 +97,8 @@ public class LangTest {
         }
         catch (TypeException ex)
         {
-            assertFalse(name + ": Unexpected Exception.", true);
-            System.out.println(ex);
+            ex.printStackTrace(); // FULL STACK TRACE
+            throw new AssertionError(name + ": Unexpected Exception.", ex);
         }
 
         assertEquals(name + ":", expected, res.toString());
