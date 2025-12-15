@@ -16,6 +16,8 @@
  */
 package lexer;
 
+import environment.Environment;
+
 /**
  * Implements a basic token class.
  *
@@ -110,6 +112,7 @@ public class Token
         Token tok = (Token) obj;
         return this.val.equals(tok.val);
     }
+
 
     /**
      * Return a String representation of the Token.
@@ -233,4 +236,6 @@ public class Token
         }
         return "";
     }
+
+    
 }
