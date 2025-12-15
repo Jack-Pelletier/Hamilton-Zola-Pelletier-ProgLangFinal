@@ -49,7 +49,7 @@ public final class LambdaNode extends SyntaxNode
         this.var = var;
         this.expr = expr;
     }
-
+    
     /**
      * Get the parameter of the function.
      * 
