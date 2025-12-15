@@ -1,19 +1,3 @@
-/*
- *   Copyright (C) 2022 -- 2025  Zachary A. Kissel
- *
- *   This program is free software: you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation, either version 3 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
 package ast.nodes;
 
 import ast.EvaluationException;
@@ -23,9 +7,10 @@ import ast.typesystem.types.Type;
 import environment.Environment;
 import environment.TypeEnvironment;
 import lexer.Token;
+import ast.nodes.FunctionCallNode;
 
 /**
- * Handles syntactic sugar for composition operations.
+ * Handles syntactic sugar for composition.
  *
  *   f ∘ g   ==>  x -> f(g(x))
  *   a |> f  ==>  f(a)
@@ -61,31 +46,25 @@ public final class CompositionNode extends SyntaxNode
         switch (kind)
         {
             case FUNCTION_COMPOSITION:
-                /*
-                 * f ∘ g  ==>  (x -> f(g(x)))
-                 */
-                Token xTok = new Token(Token.Type.IDENTIFIER, "__comp_x");
-                VariableNode x = new VariableNode(xTok);
+            {
+                // f ∘ g  ==>  x -> f(g(x))
 
-                return new LambdaNode(
-                        xTok,
-                        new FunctionCallNode(
-                                left,
-                                new FunctionCallNode(right, x, -1),
-                                -1
-                        ),
-                        -1
-                );
+                Token xTok = new Token(Token.Type.IDENTIFIER, "__comp_x");
+                VariableNode x = new VariableNode(xTok, -1);
+
+                SyntaxNode gx = new FunctionCallNode(right, x, -1);
+                SyntaxNode fgx = new FunctionCallNode(left, gx, -1);
+
+                return new LambdaNode(xTok, fgx, -1);
+            }
 
             case PIPELINE:
-                /*
-                 * a |> f  ==>  f(a)
-                 */
+                // a |> f  ==>  f(a)
                 return new FunctionCallNode(right, left, -1);
 
             default:
                 throw new IllegalStateException(
-                        buildErrorMessage("Unknown composition operation.")
+                        buildErrorMessage("Unknown composition kind.")
                 );
         }
     }
