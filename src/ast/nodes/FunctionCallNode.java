@@ -13,10 +13,9 @@ import environment.TypeEnvironment;
  * Represents a function application.
  *
  * Example:
- *   f(x)
+ * f(x)
  */
-public final class FunctionCallNode extends SyntaxNode
-{
+public final class FunctionCallNode extends SyntaxNode {
     private final SyntaxNode function;
     private final SyntaxNode argument;
 
@@ -27,8 +26,7 @@ public final class FunctionCallNode extends SyntaxNode
      * @param argument the argument expression
      * @param line     the line number
      */
-    public FunctionCallNode(SyntaxNode function, SyntaxNode argument, long line)
-    {
+    public FunctionCallNode(SyntaxNode function, SyntaxNode argument, long line) {
         super(line);
         this.function = function;
         this.argument = argument;
@@ -38,13 +36,11 @@ public final class FunctionCallNode extends SyntaxNode
      * Evaluate the function call.
      */
     @Override
-    public Object evaluate(Environment env) throws EvaluationException
-    {
+    public Object evaluate(Environment env) throws EvaluationException {
         Object funVal = function.evaluate(env);
         Object argVal = argument.evaluate(env);
 
-        if (!(funVal instanceof Closure))
-        {
+        if (!(funVal instanceof Closure)) {
             logError("Attempted to call a non-function value.");
             throw new EvaluationException();
         }
@@ -55,7 +51,8 @@ public final class FunctionCallNode extends SyntaxNode
         Environment callEnv = closure.getEnv().copy();
         callEnv.updateEnvironment(closure.getVar(), argVal);
 
-        return closure.getValue().evaluate(callEnv);
+        // Evaluate the body of the function in the new environment
+        return closure.getBody().evaluate(callEnv);
     }
 
     /**
@@ -63,8 +60,7 @@ public final class FunctionCallNode extends SyntaxNode
      */
     @Override
     public Type typeOf(TypeEnvironment tenv, Inferencer inferencer)
-            throws TypeException
-    {
+            throws TypeException {
         Type funType = function.typeOf(tenv, inferencer);
         Type argType = argument.typeOf(tenv, inferencer);
 
@@ -78,8 +74,7 @@ public final class FunctionCallNode extends SyntaxNode
      * Display the AST subtree.
      */
     @Override
-    public void displaySubtree(int indentAmt)
-    {
+    public void displaySubtree(int indentAmt) {
         printIndented("Call(", indentAmt);
         function.displaySubtree(indentAmt + 2);
         argument.displaySubtree(indentAmt + 2);
