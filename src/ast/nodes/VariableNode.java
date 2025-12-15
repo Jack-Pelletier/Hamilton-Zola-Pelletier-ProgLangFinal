@@ -39,10 +39,10 @@ public final class VariableNode extends SyntaxNode
      * @param name the identifier token
      * @param line the line number associated with this node
      */
-    public VariableNode(int name, String line)
+    public VariableNode(Token name, long line)
     {
-        super(string);
-        this.name = i;
+        super(line);
+        this.name = name;
     }
 
     /**

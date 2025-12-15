@@ -1,42 +1,53 @@
+/*
+ *   Copyright (C) 2022 -- 2025  Zachary A. Kissel
+ *
+ *   This program is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package ast.nodes;
 
 import ast.EvaluationException;
 import ast.typesystem.TypeException;
 import ast.typesystem.inferencer.Inferencer;
 import ast.typesystem.types.Type;
-import ast.nodes.VariableNode; // Added import for VariableNode
 import environment.Environment;
 import environment.TypeEnvironment;
+import lexer.Token;
 
 /**
- * Handles syntactic sugar related to composition operations.
- * This node desugars composition expressions into core AST nodes
- * before evaluation or type inference.
+ * Handles syntactic sugar for composition operations.
  *
- * Examples:
- *   f ∘ g   →   x -> f(g(x))
- *   a |> f  →   f(a)
- *
- * @author Zach Kissel
+ *   f ∘ g   ==>  x -> f(g(x))
+ *   a |> f  ==>  f(a)
  */
-public class CompositionNode extends SyntaxNode
+public final class CompositionNode extends SyntaxNode
 {
     public enum CompositionKind
     {
-        FUNCTION_COMPOSITION,   // f ∘ g
-        PIPELINE                // a |> f
+        FUNCTION_COMPOSITION,
+        PIPELINE
     }
 
     private final SyntaxNode left;
     private final SyntaxNode right;
     private final CompositionKind kind;
 
-    public CompositionNode(long lineNumber,
-                           SyntaxNode left,
+    public CompositionNode(SyntaxNode left,
                            SyntaxNode right,
-                           CompositionKind kind)
+                           CompositionKind kind,
+                           long line)
     {
-        super(lineNumber);
+        super(line);
         this.left = left;
         this.right = right;
         this.kind = kind;
@@ -53,27 +64,28 @@ public class CompositionNode extends SyntaxNode
                 /*
                  * f ∘ g  ==>  (x -> f(g(x)))
                  */
-                VariableNode x = new VariableNode(-1, "__comp_x");
+                Token xTok = new Token(Token.Type.IDENTIFIER, "__comp_x");
+                VariableNode x = new VariableNode(xTok);
 
                 return new LambdaNode(
-                        -1,
-                        x,
+                        xTok,
                         new FunctionCallNode(
-                                -1,
                                 left,
-                                new FunctionCallNode(-1, right, x)
-                        )
+                                new FunctionCallNode(right, x, -1),
+                                -1
+                        ),
+                        -1
                 );
 
             case PIPELINE:
                 /*
                  * a |> f  ==>  f(a)
                  */
-                return new FunctionCallNode(-1, right, left);
+                return new FunctionCallNode(right, left, -1);
 
             default:
                 throw new IllegalStateException(
-                        buildErrorMessage("Unknown composition kind.")
+                        buildErrorMessage("Unknown composition operation.")
                 );
         }
     }
@@ -94,7 +106,7 @@ public class CompositionNode extends SyntaxNode
     @Override
     public void displaySubtree(int indentAmt)
     {
-        printIndented("CompositionNode (" + kind + ")", indentAmt);
+        printIndented("Composition[" + kind + "]", indentAmt);
         left.displaySubtree(indentAmt + 2);
         right.displaySubtree(indentAmt + 2);
     }
