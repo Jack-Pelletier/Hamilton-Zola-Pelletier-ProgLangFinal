@@ -7,6 +7,7 @@ import ast.typesystem.types.Type;
 import environment.Environment;
 import environment.TypeEnvironment;
 import lexer.Token;
+import lexer.TokenType;
 
 /**
  * Handles syntactic sugar for composition.
@@ -37,11 +38,11 @@ public final class CompositionNode extends SyntaxNode
         this.kind = kind;
     }
 
-    private Token freshCompToken()
-    {
+    private Token freshCompToken() {
         String tmpName = "__comp_x_" + System.identityHashCode(this);
-        return new Token(Token.Type.IDENTIFIER, tmpName);
+        return new Token(TokenType.ID, tmpName); // Use your TokenType enum
     }
+    
 
     /**
      * Desugar the syntactic sugar into core AST nodes.
