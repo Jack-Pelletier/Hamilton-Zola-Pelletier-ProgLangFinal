@@ -7,13 +7,12 @@ import ast.typesystem.types.Type;
 import environment.Environment;
 import environment.TypeEnvironment;
 import lexer.Token;
-import ast.nodes.FunctionCallNode;
 
 /**
  * Handles syntactic sugar for composition.
  *
- *   f ∘ g   ==>  x -> f(g(x))
- *   a |> f  ==>  f(a)
+ * f ∘ g  becomes  fn __x => f(g(__x))
+ * a |> f becomes  f(a)
  */
 public final class CompositionNode extends SyntaxNode
 {
@@ -38,35 +37,34 @@ public final class CompositionNode extends SyntaxNode
         this.kind = kind;
     }
 
+    private Token freshCompToken()
+    {
+        String tmpName = "__comp_x_" + System.identityHashCode(this);
+        return new Token(Token.Type.IDENTIFIER, tmpName);
+    }
+
     /**
      * Desugar the syntactic sugar into core AST nodes.
      */
     private SyntaxNode desugar()
     {
-        switch (kind)
+        if (kind == CompositionKind.FUNCTION_COMPOSITION)
         {
-            case FUNCTION_COMPOSITION:
-            {
-                // f ∘ g  ==>  x -> f(g(x))
+            Token xTok = freshCompToken();
+            VariableNode x = new VariableNode(xTok, -1);
 
-                Token xTok = new Token(Token.Type.IDENTIFIER, "__comp_x");
-                VariableNode x = new VariableNode(xTok, -1);
+            SyntaxNode gx = new FunctionCallNode(right, x, -1);
+            SyntaxNode fgx = new FunctionCallNode(left, gx, -1);
 
-                SyntaxNode gx = new FunctionCallNode(right, x, -1);
-                SyntaxNode fgx = new FunctionCallNode(left, gx, -1);
-
-                return new LambdaNode(xTok, fgx, -1);
-            }
-
-            case PIPELINE:
-                // a |> f  ==>  f(a)
-                return new FunctionCallNode(right, left, -1);
-
-            default:
-                throw new IllegalStateException(
-                        buildErrorMessage("Unknown composition kind.")
-                );
+            return new LambdaNode(xTok, fgx, -1);
         }
+
+        if (kind == CompositionKind.PIPELINE)
+        {
+            return new FunctionCallNode(right, left, -1);
+        }
+
+        throw new IllegalStateException(buildErrorMessage("Unknown composition kind."));
     }
 
     @Override
@@ -76,8 +74,7 @@ public final class CompositionNode extends SyntaxNode
     }
 
     @Override
-    public Type typeOf(TypeEnvironment tenv, Inferencer inferencer)
-            throws TypeException
+    public Type typeOf(TypeEnvironment tenv, Inferencer inferencer) throws TypeException
     {
         return desugar().typeOf(tenv, inferencer);
     }
