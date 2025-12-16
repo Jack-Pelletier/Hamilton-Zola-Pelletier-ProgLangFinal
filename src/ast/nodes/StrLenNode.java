@@ -10,20 +10,12 @@ import environment.Environment;
 import environment.TypeEnvironment;
 
 /**
- * Represents the string length operation: (strlen s)
- *
- * @author Zach Kissel
+ * Represents the string length operation: strlen(s)
  */
 public final class StrLenNode extends SyntaxNode
 {
-    private SyntaxNode expr;
+    private final SyntaxNode expr;
 
-    /**
-     * Constructs a new strlen node.
-     *
-     * @param expr the expression to compute the string length of.
-     * @param line the source line.
-     */
     public StrLenNode(SyntaxNode expr, long line)
     {
         super(line);
@@ -45,8 +37,7 @@ public final class StrLenNode extends SyntaxNode
     }
 
     @Override
-    public Type typeOf(TypeEnvironment tenv, Inferencer inferencer)
-            throws TypeException
+    public Type typeOf(TypeEnvironment tenv, Inferencer inferencer) throws TypeException
     {
         Type t = expr.typeOf(tenv, inferencer);
 
