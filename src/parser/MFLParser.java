@@ -797,4 +797,16 @@ private boolean isTupleBuiltinName(String s)
         match(TokenType.RPAREN, ")");
         return new ApplyNode(fun, arg, getCurrLine());
     }
+
+    @Override
+    protected SyntaxNode parseVariable() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'parseVariable'");
+    }
+
+    @Override
+    protected SyntaxNode parseExpression() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'parseExpression'");
+    }
 }
