@@ -49,12 +49,12 @@ public final class IsEmptyNode extends SyntaxNode
     {
         Type t = expr.typeOf(tenv, inferencer);
 
-        if (!(t instanceof ListType))
-        {
-            throw new TypeException(
-                    buildErrorMessage("isempty expects a list.")
-            );
-        }
+        // Use unification instead of manual instanceof check
+        inferencer.unify(
+                t,
+                new ListType(inferencer.freshVar()),
+                buildErrorMessage("isempty expects a list.")
+        );
 
         return new BoolType();
     }
