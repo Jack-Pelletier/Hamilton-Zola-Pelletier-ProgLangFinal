@@ -228,4 +228,14 @@ public abstract class Parser {
      * @throws ParseException when a stage of parsing fails.
      */
     public abstract SyntaxTree parse() throws ParseException;
+
+    protected SyntaxNode parseExpression() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'parseExpression'");
+    }
+
+    protected SyntaxNode parseVariable() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'parseVariable'");
+    }
 }
