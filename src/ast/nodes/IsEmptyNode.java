@@ -51,10 +51,11 @@ public final class IsEmptyNode extends SyntaxNode
 
         // Use unification instead of manual instanceof check
         inferencer.unify(
-                t,
-                new ListType(inferencer.freshVar()),
-                buildErrorMessage("isempty expects a list.")
+            t,
+            new ListType(tenv.getTypeVariable()),
+            buildErrorMessage("isempty expects a list.")
         );
+        
 
         return new BoolType();
     }
