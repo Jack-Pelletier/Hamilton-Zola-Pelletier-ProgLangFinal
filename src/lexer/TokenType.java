@@ -62,9 +62,38 @@ public enum TokenType
     DIV,
 
     /**
+     * Modulus operation token.
+     */
+    MOD,
+
+    /**
      * Assign operation.
      */
     ASSIGN,
+    /**
+     * Add and assign operation.
+     */
+    ADD_ASSIGN,   
+    /**
+     * Subtract and assign operation.
+     */
+    SUB_ASSIGN,   
+    /**
+     * Multiply and assign operation.
+     */
+    MULT_ASSIGN,   
+    /**
+     * Divide and assign operation.
+     */
+    DIV_ASSIGN, 
+    /**
+     * Modulus and assign operation.
+     */
+    INCREMENT, 
+    /**
+     * Decrement and assign operation.
+     */
+    DECREMENT,
 
     /**
      * A left parenthesis.
@@ -145,11 +174,6 @@ public enum TokenType
      * A global value.
      */
     VAL,
-
-    /**
-     * Modulus operation
-     */
-    MOD,
 
     /**
      * A Let expression.
@@ -274,5 +298,5 @@ public enum TokenType
     /**
      * The end of the file token.
      */
-    EOF
+    EOF,
 }

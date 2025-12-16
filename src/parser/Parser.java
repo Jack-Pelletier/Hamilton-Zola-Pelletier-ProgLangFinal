@@ -17,6 +17,7 @@
 package parser;
 
 import ast.SyntaxTree;
+import ast.nodes.ApplyNode;
 import ast.nodes.SyntaxNode;
 import lexer.Lexer;
 import lexer.Token;
@@ -175,10 +176,54 @@ public abstract class Parser {
         return lex.getLineNumber();
     }
 
-    /**
-     * Parses the stream of tokens per the grammar rules.
-     * @return the syntax tree reprsenting the program.
-     * @throws ParseException when a stage of parsing fails.
-     */
-    public abstract SyntaxTree parse() throws ParseException;
+    private SyntaxNode parseAssignment() throws ParseException {
+        trace("parseAssignment");
+    
+        // Parse left-hand side
+        SyntaxNode lhs = parseVariable();
+                getGoodParse(lhs);
+            
+                Token op = getCurrToken();
+                TokenType opType = op.getType();
+            
+                // Case 1: normal assignment
+                if (opType == TokenType.ASSIGN) {
+                    match(TokenType.ASSIGN, "=");
+            
+                    SyntaxNode rhs = parseExpression();
+                                getGoodParse(rhs);
+                        
+                                return new ApplyNode(lhs, rhs, getCurrLine());
+                            }
+                        
+                            // Case 2: compound assignment (syntactic sugar)
+                            if (isCompoundAssign(opType)) {
+                                nextToken(); // consume +=, -=, etc.
+                        
+                                SyntaxNode rhs = parseExpression();
+                                getGoodParse(rhs);
+                        
+                                // Desugar: x += y  →  x = x + y
+                                TokenType baseOp = desugarAssign(opType);
+                        
+                                SyntaxNode expanded =
+                                    new BinOpode(
+                                        baseOp,
+                                        lhs,
+                                        rhs,
+                                        getCurrLine()
+                                    );
+                        
+                                return new AssignNode(lhs, expanded, getCurrLine());
+                            }
+                        
+                            // Otherwise: syntax error
+                            logError("expected assignment operator, saw " + op.getValue());
+                            throw new ParseException();
+                        }
+                    
+                        protected abstract SyntaxNode parseVariable();
+        
+                        protected abstract SyntaxNode parseExpression();
+    
 }
