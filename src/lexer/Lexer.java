@@ -401,6 +401,8 @@ public class Lexer
         // Tuple destructuring uses existing LET syntax: let (x, y) = ... in ...
         keywords.put("proj", TokenType.TUPLEPROJ);
         keywords.put("swap", TokenType.TUPLESWAP);
+
+        keywords.put("filter", TokenType.FILTER);
     }
 
     /**

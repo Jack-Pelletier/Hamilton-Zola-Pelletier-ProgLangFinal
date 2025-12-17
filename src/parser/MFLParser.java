@@ -26,6 +26,7 @@ import ast.nodes.BinOpNode;
 import ast.nodes.CompositionNode;
 import ast.nodes.CompositionNode.CompositionKind;
 import ast.nodes.ExplodeNode;
+import ast.nodes.FilterNode;
 import ast.nodes.FoldNode;
 import ast.nodes.HeadNode;
 import ast.nodes.IfNode;
@@ -429,6 +430,13 @@ public class MFLParser extends Parser
                 return new LenNode(fact, getCurrLine());
         }
         return null;
+    }
+
+    else if (checkMatch(TokenType.FILTER))
+    {
+        SyntaxNode pred = getGoodParse(evalExpr());
+        SyntaxNode lst = getGoodParse(evalExpr());
+        return new FilterNode(pred, lst, getCurrLine());
     }
 
     // ---- Tuple builtins by TokenType (works if lexer maps keywords) ----

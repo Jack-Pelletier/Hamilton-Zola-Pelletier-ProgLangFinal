@@ -287,6 +287,11 @@ public enum TokenType
     MAP,
 
     /**
+     * Filter built in operation.
+     */
+    FILTER,
+
+    /**
      * Left fold built in operation.
      */
     FOLDL,

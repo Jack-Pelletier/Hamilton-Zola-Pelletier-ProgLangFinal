@@ -16,7 +16,6 @@
  */
 package lexer;
 
-import environment.Environment;
 
 /**
  * Implements a basic token class.
@@ -214,6 +213,9 @@ public class Token
             return "PIPE(|>)";
         case COMPOSE:
             return "COMPOSE(∘)";
+
+        case FILTER:
+            return "FILTER";
 
         case IF:
             return "IF";
