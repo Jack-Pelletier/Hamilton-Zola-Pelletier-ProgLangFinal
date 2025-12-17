@@ -94,10 +94,15 @@ public enum TokenType
     /**
      * Modulus and assign operation.
      */
+    MOD_ASSIGN,
+
+    /**
+     * Increment operation.
+     */
     INCREMENT,
 
     /**
-     * Decrement and assign operation.
+     * Decrement operation.
      */
     DECREMENT,
 
@@ -107,7 +112,7 @@ public enum TokenType
     LPAREN,
 
     /**
-     * A right parenthesis
+     * A right parenthesis.
      */
     RPAREN,
 
@@ -132,7 +137,7 @@ public enum TokenType
     EQ,
 
     /**
-     * less than.
+     * Less than.
      */
     LT,
 
@@ -172,7 +177,7 @@ public enum TokenType
     FALSE,
 
     /**
-     * Indicates a comment -- just to simplify the token processing.
+     * Indicates a comment.
      */
     COMMENT,
 
@@ -182,7 +187,7 @@ public enum TokenType
     VAL,
 
     /**
-     * A Let expression.
+     * A let expression.
      */
     LET,
 
@@ -202,7 +207,7 @@ public enum TokenType
     RBRACK,
 
     /**
-     * List concatenation
+     * List concatenation.
      */
     CONCAT,
 
@@ -217,7 +222,7 @@ public enum TokenType
     LST_HD,
 
     /**
-     * Comma
+     * Comma.
      */
     COMMA,
 
@@ -232,7 +237,7 @@ public enum TokenType
     TUPLESWAP,
 
     /**
-     * The length of data types that support the operation.
+     * The length operation for data types that support it.
      */
     LEN,
 
@@ -247,7 +252,7 @@ public enum TokenType
     STRCAT,
 
     /**
-     * Convert a string to a list of characters/strings.
+     * Convert a string to a list of characters or strings.
      */
     STREXPLODE,
 
@@ -272,7 +277,7 @@ public enum TokenType
     ELSE,
 
     /**
-     * Lambda expression.
+     * Lambda expression keyword.
      */
     FN,
 
@@ -287,7 +292,7 @@ public enum TokenType
     MAP,
 
     /**
-     * Filter built in operation.
+     * The filter built in operation.
      */
     FILTER,
 
@@ -302,17 +307,17 @@ public enum TokenType
     FOLDR,
 
     /**
-     * The Semi colon.
+     * The semicolon token.
      */
     SEMI,
 
     /**
-     * Pipeline operator: a |> f
+     * Pipeline operator token (e.g., a |> f).
      */
     PIPE,
 
     /**
-     * Function composition operator: f ∘ g
+     * Function composition operator token (e.g., f ∘ g).
      */
     COMPOSE,
 
