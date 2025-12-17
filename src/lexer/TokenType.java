@@ -70,26 +70,32 @@ public enum TokenType
      * Assign operation.
      */
     ASSIGN,
+
     /**
      * Add and assign operation.
      */
-    ADD_ASSIGN,   
+    ADD_ASSIGN,
+
     /**
      * Subtract and assign operation.
      */
-    SUB_ASSIGN,   
+    SUB_ASSIGN,
+
     /**
      * Multiply and assign operation.
      */
-    MULT_ASSIGN,   
+    MULT_ASSIGN,
+
     /**
      * Divide and assign operation.
      */
-    DIV_ASSIGN, 
+    DIV_ASSIGN,
+
     /**
      * Modulus and assign operation.
      */
-    INCREMENT, 
+    INCREMENT,
+
     /**
      * Decrement and assign operation.
      */
@@ -294,6 +300,16 @@ public enum TokenType
      * The Semi colon.
      */
     SEMI,
+
+    /**
+     * Pipeline operator: a |> f
+     */
+    PIPE,
+
+    /**
+     * Function composition operator: f ∘ g
+     */
+    COMPOSE,
 
     /**
      * The end of the file token.

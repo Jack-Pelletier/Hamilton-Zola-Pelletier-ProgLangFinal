@@ -92,8 +92,6 @@ public class Token
     /**
      * Determines if two tokens are equal.
      *
-     * NOTE: I kept your original behavior (value-only equality) to avoid breaking
-     * existing tests that might rely on it.
      *
      * @return true if they are equal and false otherwise.
      */
@@ -112,7 +110,6 @@ public class Token
         Token tok = (Token) obj;
         return this.val.equals(tok.val);
     }
-
 
     /**
      * Return a String representation of the Token.
@@ -211,7 +208,12 @@ public class Token
             return "TUPLE_PROJ";
         case TUPLESWAP:
             return "TUPLE_SWAP";
-        
+
+        // --- NEW: pipeline / composition ---
+        case PIPE:
+            return "PIPE(|>)";
+        case COMPOSE:
+            return "COMPOSE(∘)";
 
         case IF:
             return "IF";
@@ -233,9 +235,8 @@ public class Token
             return "SEMI";
         case EOF:
             return "EOF";
+        default:
+            return "";
         }
-        return "";
     }
-
-    
 }

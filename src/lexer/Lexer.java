@@ -345,6 +345,20 @@ public class Lexer
         case ']':
             return new Token(TokenType.RBRACK, "]");
 
+        // NEW: Function composition operator token: ∘  
+        case '∘':
+            return new Token(TokenType.COMPOSE, "∘");
+                // NEW: Pipeline operator token: |> 
+        case '|':
+            stream.advance();
+            if (stream.getCurrentChar() == '>')
+                return new Token(TokenType.PIPE, "|>");
+            else
+            {
+                stream.skipNextAdvance(); // Character is part of a different token.
+                return new Token(TokenType.UNKNOWN, "|");
+            }
+
         default:
             return new Token(TokenType.UNKNOWN, String.valueOf(stream.getCurrentChar()));
         }

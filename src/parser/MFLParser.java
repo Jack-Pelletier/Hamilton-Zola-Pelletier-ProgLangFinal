@@ -23,6 +23,8 @@ import java.util.LinkedList;
 import ast.SyntaxTree;
 import ast.nodes.ApplyNode;
 import ast.nodes.BinOpNode;
+import ast.nodes.CompositionNode;
+import ast.nodes.CompositionNode.CompositionKind;
 import ast.nodes.ExplodeNode;
 import ast.nodes.FoldNode;
 import ast.nodes.HeadNode;
@@ -200,8 +202,55 @@ public class MFLParser extends Parser
         if (checkMatch(TokenType.FN))
             return handleLambdaExpr();
 
-        expr = evalBoolExpr();
+        // We are handling some other expression.
+        // NOTE: We evaluate composition/pipeline sugar at a precedence level
+        // above boolean expressions so that:
+        //   5 |> f |> g  parses as left associative chaining,
+        // and
+        //   (f ∘ g)(3) parses as a composed function applied to 3.
+        expr = evalComposePipe();
+
         trace("Exit <evalLambda>");
+        return expr;
+    }
+
+    /**
+     * Evaluates composition / pipeline expressions.
+     *
+     * This is syntactic sugar and is represented as a CompositionNode:
+     *   f ∘ g   and   a |> f
+     *
+     * We treat PIPE and COMPOSE as left-associative via looping.
+     *
+     * @return the resulting subtree.
+     * @throws ParseException when the parsing fails.
+     */
+    private SyntaxNode evalComposePipe() throws ParseException
+    {
+        SyntaxNode right;
+        TokenType op;
+        SyntaxNode expr = null;
+
+        trace("Enter <evalComposePipe>");
+
+        expr = getGoodParse(evalBoolExpr());
+
+        op = getCurrToken().getType(); // Save off the supposed operation.
+
+        while (tokenIs(TokenType.PIPE) || tokenIs(TokenType.COMPOSE))
+        {
+            op = getCurrToken().getType(); // Save off the supposed operation.
+            nextToken(); // consume PIPE/COMPOSE
+
+            right = getGoodParse(evalBoolExpr());
+
+            if (op == TokenType.PIPE)
+                expr = new CompositionNode(expr, right, CompositionKind.PIPELINE, getCurrLine());
+            else
+                expr = new CompositionNode(expr, right, CompositionKind.FUNCTION_COMPOSITION, getCurrLine());
+        }
+
+        trace("Exit <evalComposePipe>");
         return expr;
     }
 
@@ -221,13 +270,13 @@ public class MFLParser extends Parser
 
         expr = getGoodParse(evalRexpr());
 
-        op = getCurrToken().getType(); // Save off the supposed operation.
-
-        while (checkMatch(TokenType.AND) || checkMatch(TokenType.OR))
+        while (tokenIs(TokenType.AND) || tokenIs(TokenType.OR))
         {
+            op = getCurrToken().getType(); 
+            nextToken(); 
+
             rexpr = getGoodParse(evalRexpr());
             expr = new BinOpNode(expr, op, rexpr, getCurrLine());
-            op = getCurrToken().getType();
         }
 
         trace("Exit <evalBoolExpr>");
@@ -250,10 +299,11 @@ public class MFLParser extends Parser
         left = getGoodParse(evalMexpr());
 
         op = getCurrToken().getType(); // Save off what should be the operator.
-        if (checkMatch(TokenType.LT) || checkMatch(TokenType.LTE)
-                || checkMatch(TokenType.GT) || checkMatch(TokenType.GTE)
-                || checkMatch(TokenType.EQ) || checkMatch(TokenType.NEQ))
+        if (tokenIs(TokenType.LT) || tokenIs(TokenType.LTE)
+                || tokenIs(TokenType.GT) || tokenIs(TokenType.GTE)
+                || tokenIs(TokenType.EQ) || tokenIs(TokenType.NEQ))
         {
+            nextToken(); 
             right = getGoodParse(evalMexpr());
             return new RelOpNode(left, op, right, getCurrLine());
         }
@@ -275,12 +325,14 @@ public class MFLParser extends Parser
 
         expr = getGoodParse(evalTerm());
 
-        op = getCurrToken().getType(); // This should be an operator.
-        while (checkMatch(TokenType.ADD) || checkMatch(TokenType.SUB))
+        // FIX: Capture the operator AFTER consuming ADD/SUB with checkMatch.
+        while (tokenIs(TokenType.ADD) || tokenIs(TokenType.SUB))
         {
+            op = getCurrToken().getType(); 
+            nextToken(); 
+
             rterm = getGoodParse(evalTerm());
             expr = new BinOpNode(expr, op, rterm, getCurrLine());
-            op = getCurrToken().getType(); // Save off the next operator(?).
         }
 
         return expr;
@@ -311,9 +363,12 @@ public class MFLParser extends Parser
 
         // Handle the higher level binary operations.
         op = getCurrToken().getType();
-        while (checkMatch(TokenType.MULT) || checkMatch(TokenType.DIV)
-                || checkMatch(TokenType.MOD) || checkMatch(TokenType.CONCAT))
+        while (tokenIs(TokenType.MULT) || tokenIs(TokenType.DIV)
+                || tokenIs(TokenType.MOD) || tokenIs(TokenType.CONCAT))
         {
+            op = getCurrToken().getType();
+            nextToken(); 
+
             rfact = getGoodParse(evalFactor());
             term = new BinOpNode(term, op, rfact, getCurrLine());
             op = getCurrToken().getType();
@@ -796,17 +851,5 @@ private boolean isTupleBuiltinName(String s)
         SyntaxNode arg = getGoodParse(evalExpr());
         match(TokenType.RPAREN, ")");
         return new ApplyNode(fun, arg, getCurrLine());
-    }
-
-    @Override
-    protected SyntaxNode parseVariable() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'parseVariable'");
-    }
-
-    @Override
-    protected SyntaxNode parseExpression() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'parseExpression'");
     }
 }
