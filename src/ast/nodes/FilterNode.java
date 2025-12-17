@@ -1,6 +1,7 @@
 package ast.nodes;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import ast.EvaluationException;
@@ -46,10 +47,10 @@ public final class FilterNode extends SyntaxNode {
         Token fTok = freshToken("f");
         Token lstTok = freshToken("lst");
 
-        VariableNode fVar = new VariableNode(fTok, -1);
-        VariableNode lstVar = new VariableNode(lstTok, -1);
+        VariableNode fVar = new VariableNode(fTok, -1L);
+        VariableNode lstVar = new VariableNode(lstTok, -1L);
 
-        /// len(lst) = 0
+        // len(lst) = 0
         SyntaxNode lenCall = new FunctionCallNode(
                 new VariableNode(new Token(TokenType.LEN, "len"), -1L),
                 lstVar,
@@ -73,11 +74,14 @@ public final class FilterNode extends SyntaxNode {
                 lstVar,
                 -1L);
 
+        // f(hd(lst))
+        SyntaxNode predApply = new FunctionCallNode(fVar, hdCall, -1L);
+
         // recursive filter f (tl lst)
         SyntaxNode recur = new FilterNode(fVar, tlCall, -1L);
 
         // [hd(lst)] ++ recur
-        List<SyntaxNode> singleton = new ArrayList<>();
+        LinkedList<SyntaxNode> singleton = new LinkedList<>();
         singleton.add(hdCall);
 
         SyntaxNode cons = new BinOpNode(
@@ -86,19 +90,29 @@ public final class FilterNode extends SyntaxNode {
                 recur,
                 -1L);
 
-        // if len(lst)=0 then [] else ...
+        // if f(hd(lst)) then cons else recur
+        SyntaxNode ifNode = new IfNode(predApply, cons, recur, -1L);
+
+        // if len(lst) = 0 then [] else ...
         SyntaxNode baseIf = new IfNode(
                 condEmpty,
-                new ListNode(-1L),
+                new ListNode(new LinkedList<>(), -1L), // empty list
                 ifNode,
                 -1L);
 
-                return new LambdaNode(
-                    fTok,
-                    new LambdaNode(lstTok, baseIf, -1),
-                    -1);
-            
+        // lambda f -> lambda lst -> baseIf
+        SyntaxNode filterFn = new LambdaNode(
+                fTok,
+                new LambdaNode(lstTok, baseIf, -1L),
+                -1L);
+
+        // apply to the actual arguments
+        return new FunctionCallNode(
+                new FunctionCallNode(filterFn, predicate, -1L),
+                listExpr,
+                -1L);
     }
+
 
     @Override
     public Object evaluate(Environment env) throws EvaluationException {
