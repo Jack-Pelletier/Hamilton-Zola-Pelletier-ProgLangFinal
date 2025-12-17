@@ -149,4 +149,9 @@ public class TypeEnvironment
     {
         return env.toString();
     }
+
+    public void put(String value, Type tv) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'put'");
+    }
 }

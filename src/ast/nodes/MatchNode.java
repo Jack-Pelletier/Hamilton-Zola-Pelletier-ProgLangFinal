@@ -15,34 +15,19 @@ import environment.TypeEnvironment;
 import lexer.Token;
 
 /**
- * Represents a match expression similar to ML.
- *
- * match e with
- *   | p1 => e1
- *   | p2 => e2
- * end
+ * Match expression node.
  */
 public final class MatchNode extends SyntaxNode
 {
     public static final class Case
     {
-        private final PatternNode pattern;
-        private final SyntaxNode body;
+        public final PatternNode pattern;
+        public final SyntaxNode body;
 
         public Case(PatternNode pattern, SyntaxNode body)
         {
             this.pattern = pattern;
             this.body = body;
-        }
-
-        public PatternNode getPattern()
-        {
-            return pattern;
-        }
-
-        public SyntaxNode getBody()
-        {
-            return body;
         }
     }
 
@@ -53,54 +38,47 @@ public final class MatchNode extends SyntaxNode
     {
         super(line);
         this.scrutinee = scrutinee;
-        this.cases = cases == null ? new ArrayList<>() : cases;
+        this.cases = (cases == null) ? new ArrayList<Case>() : cases;
     }
 
     @Override
     public Object evaluate(Environment env) throws EvaluationException
     {
-        Object v = scrutinee.evaluate(env);
+        Object value = scrutinee.evaluate(env);
 
         for (Case c : cases)
         {
-            Environment extended = env.clone();
+            Environment extended = new Environment();
 
-            if (c.getPattern().matchAndBind(v, extended))
+            if (c.pattern.matchAndBind(value, extended))
             {
-                return c.getBody().evaluate(extended);
+                return c.body.evaluate(extended);
             }
         }
 
-        logError("non exhaustive match.");
+        logError("non exhaustive match expression.");
         throw new EvaluationException();
     }
 
     @Override
-    public Type typeOf(TypeEnvironment tenv, Inferencer inferencer) throws TypeException
+    public Type typeOf(TypeEnvironment tenv, Inferencer inferencer)
+            throws TypeException
     {
         Type scrutType = scrutinee.typeOf(tenv, inferencer);
-
-        if (cases.isEmpty())
-        {
-            throw new TypeException(buildErrorMessage("match requires at least one case."));
-        }
-
         Type resultType = inferencer.freshVar();
 
         for (Case c : cases)
         {
-            TypeEnvironment extended = tenv.clone();
+            TypeEnvironment extended = new TypeEnvironment();
 
-            Type patType = c.getPattern().typeOf(extended, inferencer);
-
+            Type patType = c.pattern.typeOf(extended, inferencer);
             inferencer.unify(
                     scrutType,
                     patType,
                     buildErrorMessage("pattern does not match scrutinee type.")
             );
 
-            Type branchType = c.getBody().typeOf(extended, inferencer);
-
+            Type branchType = c.body.typeOf(extended, inferencer);
             inferencer.unify(
                     resultType,
                     branchType,
@@ -120,15 +98,11 @@ public final class MatchNode extends SyntaxNode
         for (Case c : cases)
         {
             printIndented("Case", indentAmt + 2);
-            c.getPattern().displaySubtree(indentAmt + 4);
-            c.getBody().displaySubtree(indentAmt + 4);
+            c.pattern.displaySubtree(indentAmt + 4);
+            c.body.displaySubtree(indentAmt + 4);
         }
     }
 
-    /**
-     * Minimal pattern base class.
-     * You can later split this into separate files if you want.
-     */
     public static abstract class PatternNode extends SyntaxNode
     {
         public PatternNode(long line)
@@ -136,21 +110,17 @@ public final class MatchNode extends SyntaxNode
             super(line);
         }
 
-        public abstract boolean matchAndBind(Object value, Environment env) throws EvaluationException;
-
-        public abstract Type typeOf(TypeEnvironment tenv, Inferencer inferencer) throws TypeException;
-
         @Override
-        public Object evaluate(Environment env) throws EvaluationException
+        public final Object evaluate(Environment env) throws EvaluationException
         {
-            logError("patterns cannot be evaluated directly.");
+            logError("pattern nodes are not directly evaluatable.");
             throw new EvaluationException();
         }
+
+        public abstract boolean matchAndBind(Object value, Environment env)
+                throws EvaluationException;
     }
 
-    /**
-     * Wildcard pattern: _
-     */
     public static final class WildcardPattern extends PatternNode
     {
         public WildcardPattern(long line)
@@ -177,9 +147,6 @@ public final class MatchNode extends SyntaxNode
         }
     }
 
-    /**
-     * Variable binding pattern: x
-     */
     public static final class VarPattern extends PatternNode
     {
         private final Token id;
@@ -193,7 +160,7 @@ public final class MatchNode extends SyntaxNode
         @Override
         public boolean matchAndBind(Object value, Environment env)
         {
-            env.put(id.getLexeme(), value);
+            env.put(id.getValue(), value);
             return true;
         }
 
@@ -201,20 +168,17 @@ public final class MatchNode extends SyntaxNode
         public Type typeOf(TypeEnvironment tenv, Inferencer inferencer)
         {
             Type tv = inferencer.freshVar();
-            tenv.put(id.getLexeme(), tv);
+            tenv.put(id.getValue(), tv);
             return tv;
         }
 
         @Override
         public void displaySubtree(int indentAmt)
         {
-            printIndented("PatternVar(" + id.getLexeme() + ")", indentAmt);
+            printIndented("PatternVar(" + id.getValue() + ")", indentAmt);
         }
     }
 
-    /**
-     * Literal patterns: int, bool, string
-     */
     public static final class LiteralPattern extends PatternNode
     {
         private final Object literal;
@@ -228,9 +192,7 @@ public final class MatchNode extends SyntaxNode
         @Override
         public boolean matchAndBind(Object value, Environment env)
         {
-            if (value == null)
-                return false;
-            return value.equals(literal);
+            return value != null && value.equals(literal);
         }
 
         @Override
@@ -242,6 +204,7 @@ public final class MatchNode extends SyntaxNode
                 return new BoolType();
             if (literal instanceof String)
                 return new StringType();
+
             return inferencer.freshVar();
         }
 

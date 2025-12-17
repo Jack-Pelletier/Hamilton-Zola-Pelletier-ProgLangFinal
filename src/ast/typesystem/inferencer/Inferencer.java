@@ -212,4 +212,9 @@ public class Inferencer
 
         return false;
     }
+
+    public Type freshVar() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'freshVar'");
+    }
 }

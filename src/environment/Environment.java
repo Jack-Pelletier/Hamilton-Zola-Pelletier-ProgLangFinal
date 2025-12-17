@@ -98,4 +98,9 @@ public class Environment
 
         return rv + "}";
     }
+
+    public void put(String value, Object value2) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'put'");
+    }
 }
