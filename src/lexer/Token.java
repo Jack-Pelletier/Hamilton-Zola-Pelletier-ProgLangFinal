@@ -16,7 +16,6 @@
  */
 package lexer;
 
-
 /**
  * Implements a basic token class.
  *
@@ -32,8 +31,7 @@ public class Token
      */
     public Token()
     {
-        val = "";
-        type = TokenType.UNKNOWN;
+        this(TokenType.UNKNOWN, "");
     }
 
     /**
@@ -44,8 +42,8 @@ public class Token
      */
     public Token(TokenType type, String val)
     {
-        this.type = type;
-        this.val = val;
+        this.type = type == null ? TokenType.UNKNOWN : type;
+        this.val = val == null ? "" : val;
     }
 
     /**
@@ -75,7 +73,7 @@ public class Token
      */
     public void setValue(String val)
     {
-        this.val = val;
+        this.val = val == null ? "" : val;
     }
 
     /**
@@ -85,12 +83,11 @@ public class Token
      */
     public void setType(TokenType type)
     {
-        this.type = type;
+        this.type = type == null ? TokenType.UNKNOWN : type;
     }
 
     /**
      * Determines if two tokens are equal.
-     *
      *
      * @return true if they are equal and false otherwise.
      */
@@ -107,7 +104,21 @@ public class Token
             return false;
 
         Token tok = (Token) obj;
-        return this.val.equals(tok.val);
+        return this.type == tok.type && this.val.equals(tok.val);
+    }
+
+    /**
+     * Hash code consistent with equals.
+     *
+     * @return hash code.
+     */
+    @Override
+    public int hashCode()
+    {
+        int result = 17;
+        result = 31 * result + (type == null ? 0 : type.hashCode());
+        result = 31 * result + (val == null ? 0 : val.hashCode());
+        return result;
     }
 
     /**
@@ -128,6 +139,8 @@ public class Token
             return "REAL(" + val + ")";
         case STRING:
             return "STRING(" + val + ")";
+        case ID:
+            return "ID(" + val + ")";
 
         case ADD:
             return "ADD";
@@ -137,18 +150,38 @@ public class Token
             return "MULT";
         case DIV:
             return "DIV";
+        case MOD:
+            return "MOD";
+
+        case ASSIGN:
+            return "ASSIGN";
+        case ADD_ASSIGN:
+            return "ADD_ASSIGN";
+        case SUB_ASSIGN:
+            return "SUB_ASSIGN";
+        case MULT_ASSIGN:
+            return "MULT_ASSIGN";
+        case DIV_ASSIGN:
+            return "DIV_ASSIGN";
+        case MOD_ASSIGN:
+            return "MOD_ASSIGN";
+        case INCREMENT:
+            return "INCREMENT";
+        case DECREMENT:
+            return "DECREMENT";
+
         case LPAREN:
             return "LPAREN";
         case RPAREN:
             return "RPAREN";
-        case ID:
-            return "ID(" + val + ")";
+
         case AND:
             return "AND";
         case OR:
             return "OR";
         case NOT:
             return "NOT";
+
         case EQ:
             return "EQ";
         case NEQ:
@@ -161,38 +194,39 @@ public class Token
             return "LTE";
         case GTE:
             return "GTE";
+
         case TRUE:
             return "TRUE";
         case FALSE:
             return "FALSE";
+
         case COMMENT:
             return "COMMENT";
+
         case VAL:
             return "VAL";
-        case ASSIGN:
-            return "ASSIGN";
-        case MOD:
-            return "MOD";
         case LET:
             return "LET";
         case IN:
             return "IN";
+
         case LBRACK:
             return "LBRACK";
         case RBRACK:
             return "RBRACK";
         case COMMA:
             return "COMMA";
+
         case LST_HD:
             return "HD";
         case LST_TL:
             return "TL";
         case CONCAT:
             return "CONCAT";
+
         case LEN:
             return "LEN";
 
-        // --- String-specific operations ---
         case SUBSTR:
             return "SUBSTR";
         case STRLEN:
@@ -202,20 +236,24 @@ public class Token
         case STREXPLODE:
             return "STREXPLODE";
 
-        // --- Tuple-specific operations ---
         case TUPLEPROJ:
-            return "TUPLE_PROJ";
+            return "TUPLEPROJ";
         case TUPLESWAP:
-            return "TUPLE_SWAP";
+            return "TUPLESWAP";
 
-        // --- NEW: pipeline / composition ---
         case PIPE:
-            return "PIPE(|>)";
+            return "PIPE";
         case COMPOSE:
-            return "COMPOSE(∘)";
+            return "COMPOSE";
 
+        case MAP:
+            return "MAP";
         case FILTER:
             return "FILTER";
+        case FOLDL:
+            return "FOLDL";
+        case FOLDR:
+            return "FOLDR";
 
         case IF:
             return "IF";
@@ -223,16 +261,12 @@ public class Token
             return "THEN";
         case ELSE:
             return "ELSE";
+
         case FN:
             return "FN";
         case TO:
-            return "=>";
-        case MAP:
-            return "MAP";
-        case FOLDL:
-            return "FOLDL";
-        case FOLDR:
-            return "FOLDR";
+            return "TO";
+
         case SEMI:
             return "SEMI";
         case EOF:
