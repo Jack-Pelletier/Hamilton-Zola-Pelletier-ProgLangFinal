@@ -1,13 +1,10 @@
 package ast.nodes;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 
 import ast.EvaluationException;
 import ast.typesystem.TypeException;
 import ast.typesystem.inferencer.Inferencer;
-import ast.typesystem.types.ListType;
 import ast.typesystem.types.Type;
 import environment.Environment;
 import environment.TypeEnvironment;
@@ -50,55 +47,55 @@ public final class FilterNode extends SyntaxNode {
         VariableNode fVar = new VariableNode(fTok, -1L);
         VariableNode lstVar = new VariableNode(lstTok, -1L);
 
-        // len(lst) = 0
-        SyntaxNode lenCall = new FunctionCallNode(
-                new VariableNode(new Token(TokenType.LEN, "len"), -1L),
-                lstVar,
-                -1L);
+        /*
+         * NOTE:
+         * The original version implemented filter using explicit recursion over:
+         *   if len(lst)=0 then [] else ...
+         * but that relies on building a new FilterNode inside desugar(), which causes
+         * repeated desugaring during type inference (and can blow up).
+         *
+         * To preserve the overall structure (lambda f -> lambda lst -> <body>),
+         * we keep the same outer shape and replace only the inner "baseIf" body
+         * with an equivalent foldr-based definition:
+         *
+         * filter f lst
+         *   = foldr (fn x -> fn acc -> if f(x) then [x] ++ acc else acc) [] lst
+         */
 
-        // int literal 0
-        Token zeroTok = new Token(TokenType.INT, "0");
-        SyntaxNode zero = new IntNode(zeroTok, -1L);
+        // foldr step variables
+        Token xTok = freshToken("x");
+        Token accTok = freshToken("acc");
 
-        SyntaxNode condEmpty = new BinOpNode(lenCall, TokenType.EQ, zero, -1L);
+        VariableNode xVar = new VariableNode(xTok, -1L);
+        VariableNode accVar = new VariableNode(accTok, -1L);
 
-        // hd(lst)
-        SyntaxNode hdCall = new FunctionCallNode(
-                new VariableNode(new Token(TokenType.LST_HD, "hd"), -1L),
-                lstVar,
-                -1L);
+        // f(x)
+        SyntaxNode predApply = new FunctionCallNode(fVar, xVar, -1L);
 
-        // tl(lst)
-        SyntaxNode tlCall = new FunctionCallNode(
-                new VariableNode(new Token(TokenType.LST_TL, "tl"), -1L),
-                lstVar,
-                -1L);
-
-        // f(hd(lst))
-        SyntaxNode predApply = new FunctionCallNode(fVar, hdCall, -1L);
-
-        // recursive filter f (tl lst)
-        SyntaxNode recur = new FilterNode(fVar, tlCall, -1L);
-
-        // [hd(lst)] ++ recur
+        // [x] ++ acc
         LinkedList<SyntaxNode> singleton = new LinkedList<>();
-        singleton.add(hdCall);
+        singleton.add(xVar);
 
         SyntaxNode cons = new BinOpNode(
                 new ListNode(singleton, -1L),
                 TokenType.CONCAT,
-                recur,
+                accVar,
                 -1L);
 
-        // if f(hd(lst)) then cons else recur
-        SyntaxNode ifNode = new IfNode(predApply, cons, recur, -1L);
+        // if f(x) then cons else acc
+        SyntaxNode ifNode = new IfNode(predApply, cons, accVar, -1L);
 
-        // if len(lst) = 0 then [] else ...
-        SyntaxNode baseIf = new IfNode(
-                condEmpty,
-                new ListNode(new LinkedList<>(), -1L), // empty list
-                ifNode,
+        // fn x -> fn acc -> ifNode
+        SyntaxNode stepFn = new LambdaNode(
+                xTok,
+                new LambdaNode(accTok, ifNode, -1L),
                 -1L);
+
+        // empty list
+        SyntaxNode empty = new ListNode(new LinkedList<>(), -1L);
+
+        // foldr(stepFn, [], lst)
+        SyntaxNode baseIf = new FoldNode(stepFn, empty, lstVar, false, -1L);
 
         // lambda f -> lambda lst -> baseIf
         SyntaxNode filterFn = new LambdaNode(
