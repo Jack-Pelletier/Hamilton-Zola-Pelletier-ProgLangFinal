@@ -159,7 +159,10 @@ public class FoldNode extends SyntaxNode
         Type lstType = lst.typeOf(tenv, inferencer);
         Type ivalType = ival.typeOf(tenv, inferencer);
 
-        inferencer.unify(lstType, new ListType(tenv.getTypeVariable()),
+        
+        VarType elemTv = tenv.getTypeVariable();
+
+        inferencer.unify(lstType, new ListType(elemTv),
                 buildErrorMessage("fold" + ((leftFold) ? "l" : "r")
                         + " requires a list."));
 
@@ -171,6 +174,9 @@ public class FoldNode extends SyntaxNode
                     new FunType(tv, new FunType(tenv.getTypeVariable(), tv)),
                     buildErrorMessage("foldl requires a curried function."));
 
+            // Refresh funType after unification before casting.
+            funType = inferencer.getSubstitutions().apply(funType);
+
             // Make sure the type of the initial value matches the type of first
             // arguemnt to our curried function.
             inferencer.unify(((FunType) funType).getArgType(), ivalType,
@@ -181,7 +187,7 @@ public class FoldNode extends SyntaxNode
             // the
             // list element type.
             FunType body = (FunType) ((FunType) funType).getBodyType();
-            inferencer.unify(((ListType) lstType).getElementType(),
+            inferencer.unify(elemTv,
                     body.getArgType(),
                     buildErrorMessage("Parameter and list type mismatch."));
         }
@@ -193,10 +199,13 @@ public class FoldNode extends SyntaxNode
                     new FunType(tenv.getTypeVariable(), new FunType(tv, tv)),
                     buildErrorMessage("foldr requires a curried function."));
 
+            // Refresh funType after unification before casting.
+            funType = inferencer.getSubstitutions().apply(funType);
+
             // Make sure the type of the list element matches the first argument
             // type.
             inferencer.unify(((FunType) funType).getArgType(),
-                    ((ListType) lstType).getElementType(), buildErrorMessage(
+                    elemTv, buildErrorMessage(
                             "List element and first argument must be of same type."));
 
             // Make sure the inner function argument type matches the type of
