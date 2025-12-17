@@ -17,7 +17,6 @@
 package parser;
 
 import ast.SyntaxTree;
-import ast.nodes.ApplyNode;
 import ast.nodes.SyntaxNode;
 import lexer.Lexer;
 import lexer.Token;
@@ -175,55 +174,68 @@ public abstract class Parser {
     {
         return lex.getLineNumber();
     }
+// Syntactic Sugar Support Methods
+    /**
+     * Returns true if the token is a compound assignment operator (+=, -=, etc.).
+     */
+    protected boolean isCompoundAssign(TokenType type) {
+        return type == TokenType.ADD_ASSIGN
+            || type == TokenType.SUB_ASSIGN
+            || type == TokenType.MULT_ASSIGN
+            || type == TokenType.DIV_ASSIGN;
+    }
 
-    private SyntaxNode parseAssignment() throws ParseException {
-        trace("parseAssignment");
-    
-        // Parse left-hand side
-        SyntaxNode lhs = parseVariable();
-                getGoodParse(lhs);
-            
-                Token op = getCurrToken();
-                TokenType opType = op.getType();
-            
-                // Case 1: normal assignment
-                if (opType == TokenType.ASSIGN) {
-                    match(TokenType.ASSIGN, "=");
-            
-                    SyntaxNode rhs = parseExpression();
-                                getGoodParse(rhs);
-                        
-                                return new ApplyNode(lhs, rhs, getCurrLine());
-                            }
-                        
-                            // Case 2: compound assignment (syntactic sugar)
-                            if (isCompoundAssign(opType)) {
-                                nextToken(); // consume +=, -=, etc.
-                        
-                                SyntaxNode rhs = parseExpression();
-                                getGoodParse(rhs);
-                        
-                                // Desugar: x += y  →  x = x + y
-                                TokenType baseOp = desugarAssign(opType);
-                        
-                                SyntaxNode expanded =
-                                    new BinOpode(
-                                        baseOp,
-                                        lhs,
-                                        rhs,
-                                        getCurrLine()
-                                    );
-                        
-                                return new AssignNode(lhs, expanded, getCurrLine());
-                            }
-                        
-                            // Otherwise: syntax error
-                            logError("expected assignment operator, saw " + op.getValue());
-                            throw new ParseException();
-                        }
-                    
-                        protected abstract SyntaxNode parseVariable();
-        
-                        protected abstract SyntaxNode parseExpression();
-    
+    /**
+     * Converts a compound assignment operator into its base binary operator.
+     * Example: += → ADD
+     */
+    protected TokenType desugarCompoundAssign(TokenType type) {
+        switch (type) {
+            case ADD_ASSIGN:  return TokenType.ADD;
+            case SUB_ASSIGN:  return TokenType.SUB;
+            case MULT_ASSIGN: return TokenType.MULT;
+            case DIV_ASSIGN:  return TokenType.DIV;
+            default:
+                throw new IllegalArgumentException(
+                    "Not a compound assignment operator"
+                );
+        }
+    }
+
+    /**
+     * Returns true if the token is ++ or --.
+     */
+    protected boolean isIncDec(TokenType type) {
+        return type == TokenType.INCREMENT
+            || type == TokenType.DECREMENT;
+    }
+
+    /**
+     * Converts ++ / -- into ADD or SUB.
+     */
+    protected TokenType desugarIncDec(TokenType type) {
+        if (type == TokenType.INCREMENT)
+            return TokenType.ADD;
+        if (type == TokenType.DECREMENT)
+            return TokenType.SUB;
+
+        throw new IllegalArgumentException("Not increment/decrement");
+    }
+
+    /**
+     * Parses the stream of tokens per the grammar rules.
+     * @return the syntax tree reprsenting the program.
+     * @throws ParseException when a stage of parsing fails.
+     */
+    public abstract SyntaxTree parse() throws ParseException;
+
+    protected SyntaxNode parseExpression() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'parseExpression'");
+    }
+
+    protected SyntaxNode parseVariable() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'parseVariable'");
+    }
 }
