@@ -100,7 +100,7 @@ public class Environment
     }
 
     public void put(String value, Object value2) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'put'");
+        if (env.replace(value, value2) == null)
+            env.put(value, value2);
     }
 }

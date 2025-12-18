@@ -151,7 +151,9 @@ public class TypeEnvironment
     }
 
     public void put(String value, Type tv) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'put'");
+        // Keep semantics consistent with updateEnvironment:
+        // bind/overwrite the name with the given type.
+        if (env.replace(value, tv) == null)
+            env.put(value, tv);
     }
 }
