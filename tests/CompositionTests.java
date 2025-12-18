@@ -32,7 +32,7 @@ public class CompositionTests extends LangTest
         String prog =
             "val f := fn x -> x + 1;\n" +
             "val g := fn x -> x * 2;\n" +
-            "(f ∘ g)(3);";
+            "(f o g)(3);";
 
         runTypeTest("functionCompositionEval", prog, "int");
         runEvalTest("functionCompositionEval", prog, "7");
@@ -78,7 +78,7 @@ public class CompositionTests extends LangTest
         String prog =
             "val inc := fn x -> x + 1;\n" +
             "val square := fn x -> x * x;\n" +
-            "(square ∘ inc)(4);";
+            "(square o inc)(4);";
 
         runTypeTest("compositionHigherOrder", prog, "int");
         runEvalTest("compositionHigherOrder", prog, "25");
