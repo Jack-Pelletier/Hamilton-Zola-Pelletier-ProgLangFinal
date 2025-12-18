@@ -86,7 +86,7 @@ public final class MatchNode extends SyntaxNode
             );
         }
 
-        return resultType;
+        return inferencer.getSubstitutions().apply(resultType);
     }
 
     @Override
