@@ -40,6 +40,16 @@ public final class VarType extends Type
     }
 
     /**
+     * Gets {@code this} VarType's serial number.
+     * 
+     * @return the identifier for this variable type.
+     */
+    public int getSerialNumber()
+    {
+        return serialNumber;
+    }
+
+    /**
      * Sets {@code this} VarType's serial number to {@code type}'s serial
      * number.
      * 

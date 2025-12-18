@@ -35,6 +35,7 @@ import ast.nodes.LenNode;
 import ast.nodes.LetNode;
 import ast.nodes.ListNode;
 import ast.nodes.MapNode;
+
 import ast.nodes.ProgNode;
 import ast.nodes.RelOpNode;
 import ast.nodes.StrCatNode;
@@ -49,6 +50,9 @@ import ast.nodes.TupleProjNode;
 import ast.nodes.TupleSwapNode;
 import ast.nodes.UnaryOpNode;
 import ast.nodes.ValNode;
+import ast.nodes.MatchNode;
+import ast.nodes.MatchNode.PatternNode;
+
 import lexer.Lexer;
 import lexer.Token;
 import lexer.TokenType;
@@ -149,6 +153,9 @@ public class MFLParser extends Parser
         if (checkMatch(TokenType.IF))
             return handleIf();
 
+        if (checkMatch(TokenType.MATCH))
+            return handleMatch();
+
         SyntaxNode expr = getGoodParse(evalLambda());
 
         trace("Exit <expr>");
@@ -180,9 +187,13 @@ public class MFLParser extends Parser
 
         SyntaxNode expr = getGoodParse(evalBoolExpr());
 
-        while (tokenIs(TokenType.PIPE) || tokenIs(TokenType.COMPOSE))
+        while (tokenIs(TokenType.PIPE) || tokenIs(TokenType.COMPOSE) || isComposeAsIdQuestion())
         {
             TokenType op = getCurrToken().getType();
+
+            if (isComposeAsIdQuestion())
+                op = TokenType.COMPOSE;
+
             nextToken();
 
             SyntaxNode right = getGoodParse(evalBoolExpr());
@@ -195,6 +206,13 @@ public class MFLParser extends Parser
 
         trace("Exit <evalComposePipe>");
         return expr;
+    }
+
+    
+
+    private boolean isComposeAsIdQuestion()
+    {
+        return tokenIs(TokenType.ID) && "?".equals(getCurrToken().getValue());
     }
 
     /**
@@ -684,6 +702,135 @@ public class MFLParser extends Parser
 
         trace("Exit handleLet");
         return new LetNode(var, varExpr, expr, getCurrLine());
+    }
+
+    private SyntaxNode handleMatch() throws ParseException
+    {
+        trace("Enter handleMatch");
+
+        SyntaxNode scrutinee = getGoodParse(evalExpr());
+
+        match(TokenType.WITH, "with");
+
+        LinkedList<MatchNode.Case> cs = new LinkedList<>();
+
+        matchCaseBar();
+
+        do
+        {
+            PatternNode pat = (PatternNode) getGoodParse(evalPattern());
+            match(TokenType.TO, "->");
+
+            SyntaxNode body = getGoodParse(evalExpr());
+            cs.add(new MatchNode.Case(pat, body));
+        }
+        while (checkCaseBar());
+
+        trace("Exit handleMatch");
+        return new MatchNode(scrutinee, cs, getCurrLine());
+    }
+
+    private void matchCaseBar() throws ParseException
+    {
+        // Accept BAR (preferred), PIPE (if lexer uses PIPE for bare '|'), or UNKNOWN("|") (old lexer behavior).
+        if (tokenIs(TokenType.BAR))
+        {
+            nextToken();
+            return;
+        }
+
+        if (tokenIs(TokenType.PIPE))
+        {
+            nextToken();
+            return;
+        }
+
+        if (tokenIs(TokenType.UNKNOWN) && "|".equals(getCurrToken().getValue()))
+        {
+            nextToken();
+            return;
+        }
+
+        throw new ParseException("Syntax Error (line " + getCurrLine()
+                + "): expected |, saw " + getCurrToken().getValue() + ".");
+    }
+
+    private boolean checkCaseBar() throws ParseException
+    {
+        if (tokenIs(TokenType.BAR))
+        {
+            nextToken();
+            return true;
+        }
+
+        if (tokenIs(TokenType.PIPE))
+        {
+            nextToken();
+            return true;
+        }
+
+        if (tokenIs(TokenType.UNKNOWN) && "|".equals(getCurrToken().getValue()))
+        {
+            nextToken();
+            return true;
+        }
+
+        return false;
+    }
+
+    private PatternNode evalPattern() throws ParseException
+    {
+        trace("Enter <pattern>");
+
+        // Wildcard: accept either ID("_") or UNKNOWN("_") depending on lexer.
+        if ((tokenIs(TokenType.ID) || tokenIs(TokenType.UNKNOWN))
+                && "_".equals(getCurrToken().getValue()))
+        {
+            nextToken();
+            trace("Exit <pattern>");
+            return new MatchNode.WildcardPattern(getCurrLine());
+        }
+
+        if (tokenIs(TokenType.ID))
+        {
+            Token idTok = getCurrToken();
+            nextToken();
+            trace("Exit <pattern>");
+            return new MatchNode.VarPattern(idTok, getCurrLine());
+        }
+
+        if (tokenIs(TokenType.INT))
+        {
+            Token t = getCurrToken();
+            nextToken();
+            trace("Exit <pattern>");
+            return new MatchNode.LiteralPattern(Integer.parseInt(t.getValue()), getCurrLine());
+        }
+
+        if (tokenIs(TokenType.TRUE))
+        {
+            nextToken();
+            trace("Exit <pattern>");
+            return new MatchNode.LiteralPattern(Boolean.TRUE, getCurrLine());
+        }
+
+        if (tokenIs(TokenType.FALSE))
+        {
+            nextToken();
+            trace("Exit <pattern>");
+            return new MatchNode.LiteralPattern(Boolean.FALSE, getCurrLine());
+        }
+
+        if (tokenIs(TokenType.STRING))
+        {
+            Token t = getCurrToken();
+            nextToken();
+            trace("Exit <pattern>");
+            return new MatchNode.LiteralPattern(t.getValue(), getCurrLine());
+        }
+
+        throw new ParseException("Syntax Error (line " + getCurrLine()
+                + "): expected pattern: _, identifier, int, bool, or string literal.");
     }
 
     /**

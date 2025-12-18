@@ -44,6 +44,9 @@ public class Inferencer
     // what runtime types are being unified. Keep false for normal test runs.
     private static final boolean DEBUG_UNIFY = false;
 
+    // The next serial number to use when creating a fresh type variable.
+    private int nextSerialNumber = 0;
+
     /**
      * The default constructor builds a new type substitution.
      */
@@ -71,6 +74,16 @@ public class Inferencer
     public Substitutions getSubstitutions()
     {
         return subst;
+    }
+
+    /**
+     * Create a fresh type variable.
+     * 
+     * @return a new unique type variable.
+     */
+    public Type freshVar()
+    {
+        return new VarType(nextSerialNumber++);
     }
 
     /**
@@ -211,10 +224,5 @@ public class Inferencer
         }
 
         return false;
-    }
-
-    public Type freshVar() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'freshVar'");
     }
 }
