@@ -1,7 +1,7 @@
 /*
  *   Copyright (C) 2022 -- 2025  Zachary A. Kissel
  *
- *   This program is free software: you can redistribute it and/or modify
+ *   This program is free software: you can redistribute it and or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
@@ -54,32 +54,18 @@ import lexer.Token;
 import lexer.TokenType;
 
 /**
- * <p>
- * Parser for the MFL language. This is largely private methods where
- * there is one method the "eval" method for each non-terminal of the grammar.
- * There are also a collection of private "handle" methods that handle one
- * production associated with a non-terminal.
- * </p>
- * <p>
- * Each of the private methods operates on the token stream. It is important to
- * remember that all of our non-terminal processing methods maintain the invariant
- * that each method leaves the concludes such that the next unprocessed token is at
- * the front of the token stream. This means each method can assume the current token
- * has not yet been processed when the method begins. The methods {@code checkMatch}
- * and {@code match} are methods that maintain this invariant in the case of a match.
- * The method {@code tokenIs} does NOT advnace the token stream. To advance the token
- * stream the {@code nextTok} method can be used. In the rare cases that the token
- * at the head of the stream must be accessed directly, the {@code getCurrToken}
- * method can be used.
- * </p>
+ * Parser for the MFL language.
+ *
+ * Each non terminal has an eval method that builds the corresponding AST node.
+ * The invariant is that each method finishes with the next unprocessed token
+ * at the head of the token stream.
  *
  * @author Zach Kissel
  */
 public class MFLParser extends Parser
 {
-
     /**
-     * Constructs a new parser for the file {@code source} by setting up lexer.
+     * Constructs a new parser for the file src by setting up lexer.
      *
      * @param src the source code file to parse.
      * @throws FileNotFoundException if the file can not be found.
@@ -90,7 +76,7 @@ public class MFLParser extends Parser
     }
 
     /**
-     * Construct a parser that parses the string {@code str}.
+     * Construct a parser that parses the string str.
      *
      * @param str the code to evaluate.
      */
@@ -105,145 +91,101 @@ public class MFLParser extends Parser
      * @return the abstract syntax tree representing the parsed program.
      * @throws ParseException when parsing fails.
      */
+    @Override
     public SyntaxTree parse() throws ParseException
     {
-        SyntaxTree ast;
-
-        nextToken(); // Get the first token.
-        ast = new SyntaxTree(evalProg()); // Start processing at the root of the tree.
-
+        nextToken();
+        SyntaxTree ast = new SyntaxTree(evalProg());
         match(TokenType.EOF, "EOF");
-
         return ast;
     }
 
-    /************
-     * Evaluation methods to constrct the AST associated with the non-terminals
-     ***********/
-
     /**
-     * Method to evaluate the program non-terminal. <prog> -> <expr> { <expr> }
-     *
-     * @throws ParseException if the evaluation of an expression fails.
+     * <prog> -> <values> ; { <values> ; }
      */
     private SyntaxNode evalProg() throws ParseException
     {
         LinkedList<SyntaxNode> exprs = new LinkedList<>();
 
         trace("Enter <prog>");
+
         while (!checkMatch(TokenType.EOF))
         {
             SyntaxNode currNode = evalValues();
             if (currNode == null)
                 break;
 
-            // Make sure we have a semi colon ending the line.
-            if (match(TokenType.SEMI, ";"))
-                exprs.add(currNode);
+            match(TokenType.SEMI, ";");
+            exprs.add(currNode);
         }
 
-        // We have an empty collection of expressions.
         if (exprs.size() == 0)
             return null;
 
         trace("Exit <prog>");
-        return new ProgNode(exprs, super.getCurrLine());
+        return new ProgNode(exprs, getCurrLine());
     }
 
     /**
-     * Method to evaluate the <values> non-terminal
-     *
-     * @throws ParseException if there is an error during parsing
+     * <values> -> val <id> := <expr> | <expr>
      */
     private SyntaxNode evalValues() throws ParseException
     {
-        // Function definition.
         if (checkMatch(TokenType.VAL))
             return getGoodParse(handleValues());
-        else // Just an expression.
-            return getGoodParse(evalExpr());
+        return getGoodParse(evalExpr());
     }
 
     /**
-     * Method to evaluate the expression non-terminal <expr>
-     *
-     * @throws ParseException if there is an error during parsing.
+     * <expr> -> let ... | if ... | <lambda>
      */
     private SyntaxNode evalExpr() throws ParseException
     {
         trace("Enter <expr>");
-        SyntaxNode expr = null;
 
-        // Are we looking at a let expression?
         if (checkMatch(TokenType.LET))
             return handleLet();
 
-        // Are we looking at an if-then-else expresison?
         if (checkMatch(TokenType.IF))
             return handleIf();
 
-        // We are handling some other expression.
-        expr = getGoodParse(evalLambda());
+        SyntaxNode expr = getGoodParse(evalLambda());
 
         trace("Exit <expr>");
         return expr;
     }
 
     /**
-     * Method to evaluate the lambda non-terminal.
-     *
-     * @return The syntax tree resulting from evaluation
-     * @throws ParseException when the evaluation fails.
+     * <lambda> -> fn <id> -> <expr> | <composePipe>
      */
     private SyntaxNode evalLambda() throws ParseException
     {
-        SyntaxNode expr = null;
-
         trace("Enter <evalLambda>");
+
         if (checkMatch(TokenType.FN))
             return handleLambdaExpr();
 
-        // We are handling some other expression.
-        // NOTE: We evaluate composition/pipeline sugar at a precedence level
-        // above boolean expressions so that:
-        //   5 |> f |> g  parses as left associative chaining,
-        // and
-        //   (f ∘ g)(3) parses as a composed function applied to 3.
-        expr = evalComposePipe();
+        SyntaxNode expr = evalComposePipe();
 
         trace("Exit <evalLambda>");
         return expr;
     }
 
     /**
-     * Evaluates composition / pipeline expressions.
-     *
-     * This is syntactic sugar and is represented as a CompositionNode:
-     *   f ∘ g   and   a |> f
-     *
-     * We treat PIPE and COMPOSE as left-associative via looping.
-     *
-     * @return the resulting subtree.
-     * @throws ParseException when the parsing fails.
+     * Handles composition and pipeline.
      */
     private SyntaxNode evalComposePipe() throws ParseException
     {
-        SyntaxNode right;
-        TokenType op;
-        SyntaxNode expr = null;
-
         trace("Enter <evalComposePipe>");
 
-        expr = getGoodParse(evalBoolExpr());
-
-        op = getCurrToken().getType(); // Save off the supposed operation.
+        SyntaxNode expr = getGoodParse(evalBoolExpr());
 
         while (tokenIs(TokenType.PIPE) || tokenIs(TokenType.COMPOSE))
         {
-            op = getCurrToken().getType(); // Save off the supposed operation.
-            nextToken(); // consume PIPE/COMPOSE
+            TokenType op = getCurrToken().getType();
+            nextToken();
 
-            right = getGoodParse(evalBoolExpr());
+            SyntaxNode right = getGoodParse(evalBoolExpr());
 
             if (op == TokenType.PIPE)
                 expr = new CompositionNode(expr, right, CompositionKind.PIPELINE, getCurrLine());
@@ -256,56 +198,42 @@ public class MFLParser extends Parser
     }
 
     /**
-     * Evaluates the bool expression non-terminal (bexpr).
-     *
-     * @return the resulting subtree.
-     * @throws ParseException when the parsing fails.
+     * <bexpr> -> <rexpr> { (and | or) <rexpr> }
      */
     private SyntaxNode evalBoolExpr() throws ParseException
     {
-        SyntaxNode rexpr;
-        TokenType op;
-        SyntaxNode expr = null;
-
         trace("Enter <evalBoolExpr>");
 
-        expr = getGoodParse(evalRexpr());
+        SyntaxNode expr = getGoodParse(evalRexpr());
 
         while (tokenIs(TokenType.AND) || tokenIs(TokenType.OR))
         {
-            op = getCurrToken().getType(); 
-            nextToken(); 
+            TokenType op = getCurrToken().getType();
+            nextToken();
 
-            rexpr = getGoodParse(evalRexpr());
+            SyntaxNode rexpr = getGoodParse(evalRexpr());
             expr = new BinOpNode(expr, op, rexpr, getCurrLine());
         }
 
         trace("Exit <evalBoolExpr>");
-
         return expr;
     }
 
     /**
-     * Evaluates relational expressions (the <rexpr> non-terminal)
-     *
-     * @return a SyntaxNode representing the relation expression.
-     * @throws ParseException when parsing fails.
+     * <rexpr> -> <mexpr> [ relop <mexpr> ]
      */
     private SyntaxNode evalRexpr() throws ParseException
     {
-        SyntaxNode left = null;
-        SyntaxNode right = null;
-        TokenType op;
+        SyntaxNode left = getGoodParse(evalMexpr());
 
-        left = getGoodParse(evalMexpr());
-
-        op = getCurrToken().getType(); // Save off what should be the operator.
         if (tokenIs(TokenType.LT) || tokenIs(TokenType.LTE)
                 || tokenIs(TokenType.GT) || tokenIs(TokenType.GTE)
                 || tokenIs(TokenType.EQ) || tokenIs(TokenType.NEQ))
         {
-            nextToken(); 
-            right = getGoodParse(evalMexpr());
+            TokenType op = getCurrToken().getType();
+            nextToken();
+
+            SyntaxNode right = getGoodParse(evalMexpr());
             return new RelOpNode(left, op, right, getCurrLine());
         }
 
@@ -313,26 +241,18 @@ public class MFLParser extends Parser
     }
 
     /**
-     * evaluates the math expression non-terminal (mexpr).
-     *
-     * @return a SyntaxNode representing the expression.
-     * @throws ParseException when parsing fails.
+     * <mexpr> -> <term> { (+ | -) <term> }
      */
     private SyntaxNode evalMexpr() throws ParseException
     {
-        SyntaxNode expr = null;
-        SyntaxNode rterm = null;
-        TokenType op;
+        SyntaxNode expr = getGoodParse(evalTerm());
 
-        expr = getGoodParse(evalTerm());
-
-        // FIX: Capture the operator AFTER consuming ADD/SUB with checkMatch.
         while (tokenIs(TokenType.ADD) || tokenIs(TokenType.SUB))
         {
-            op = getCurrToken().getType(); 
-            nextToken(); 
+            TokenType op = getCurrToken().getType();
+            nextToken();
 
-            rterm = getGoodParse(evalTerm());
+            SyntaxNode rterm = getGoodParse(evalTerm());
             expr = new BinOpNode(expr, op, rterm, getCurrLine());
         }
 
@@ -340,519 +260,435 @@ public class MFLParser extends Parser
     }
 
     /**
-     * Method to evaluate the term nonterminal.
-     *
-     * @return the subtree representing the expression.
-     * @throws ParseException when the parsing fails.
+     * <term> -> <factor> { (* | / | mod | concat) <factor> }
      */
     private SyntaxNode evalTerm() throws ParseException
     {
-        SyntaxNode rfact;
-        TokenType op;
-        SyntaxNode term;
-
         trace("Enter <term>");
 
-        // Handle unary not.
         if (checkMatch(TokenType.NOT))
         {
             SyntaxNode expr = getGoodParse(evalRexpr());
+            trace("Exit <term>");
             return new UnaryOpNode(expr, TokenType.NOT, getCurrLine());
         }
 
-        term = getGoodParse(evalFactor());
+        SyntaxNode term = getGoodParse(evalFactor());
 
-        // Handle the higher level binary operations.
-        op = getCurrToken().getType();
         while (tokenIs(TokenType.MULT) || tokenIs(TokenType.DIV)
-                || tokenIs(TokenType.MOD) || tokenIs(TokenType.CONCAT))
+                || tokenIs(TokenType.MOD) || tokenIs(TokenType.CONCAT)
+                || tokenIs(TokenType.INCREMENT))
         {
-            op = getCurrToken().getType();
-            nextToken(); 
+            TokenType op = getCurrToken().getType();
+            nextToken();
 
-            rfact = getGoodParse(evalFactor());
+            if (op == TokenType.INCREMENT)
+                op = TokenType.CONCAT;
+
+            SyntaxNode rfact = getGoodParse(evalFactor());
             term = new BinOpNode(term, op, rfact, getCurrLine());
-            op = getCurrToken().getType();
         }
+
         trace("Exit <term>");
         return term;
     }
 
     /**
-     * Method to evaluate the factor non-terminal (the tightest binding operations).
-     *
-     * @return the subtree resulting from the parse.
-     * @throws ParseException when parsing fails.
+     * <factor> includes literals, identifiers, calls, lists, tuples, and builtins.
      */
     private SyntaxNode evalFactor() throws ParseException
-{
-    trace("Enter <factor>");
-    SyntaxNode fact = null;
-
-    // Do we have a unary sub (i.e., a negative).
-    if (checkMatch(TokenType.SUB))
     {
-        SyntaxNode expr = getGoodParse(evalFactor());
-        return new UnaryOpNode(expr, TokenType.SUB, getCurrLine());
-    }
+        trace("Enter <factor>");
 
-    // list head built in function.
-    else if (checkMatch(TokenType.LST_HD))
-    {
-        if (match(TokenType.LPAREN, "("))
+        SyntaxNode fact = null;
+
+        if (checkMatch(TokenType.SUB))
         {
-            fact = getGoodParse(evalExpr());
-            if (match(TokenType.RPAREN, ")"))
-                return new HeadNode(fact, getCurrLine());
+            SyntaxNode expr = getGoodParse(evalFactor());
+            trace("Exit <factor>");
+            return new UnaryOpNode(expr, TokenType.SUB, getCurrLine());
         }
-        return null;
-    }
 
-    // list tail built in function.
-    else if (checkMatch(TokenType.LST_TL))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.LST_HD))
         {
-            fact = getGoodParse(evalExpr());
-            if (match(TokenType.RPAREN, ")"))
-                return new TailNode(fact, getCurrLine());
+            match(TokenType.LPAREN, "(");
+            SyntaxNode e = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new HeadNode(e, getCurrLine());
         }
-        return null;
-    }
 
-    // Len built in function.
-    else if (checkMatch(TokenType.LEN))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.LST_TL))
         {
-            fact = getGoodParse(evalExpr());
-            if (match(TokenType.RPAREN, ")"))
-                return new LenNode(fact, getCurrLine());
+            match(TokenType.LPAREN, "(");
+            SyntaxNode e = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new TailNode(e, getCurrLine());
         }
-        return null;
-    }
 
-    else if (checkMatch(TokenType.FILTER))
-    {
-        SyntaxNode pred = getGoodParse(evalExpr());
-        SyntaxNode lst = getGoodParse(evalExpr());
-        return new FilterNode(pred, lst, getCurrLine());
-    }
-
-    // ---- Tuple builtins by TokenType (works if lexer maps keywords) ----
-
-    else if (checkMatch(TokenType.TUPLEPROJ))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.LEN))
         {
+            match(TokenType.LPAREN, "(");
+            SyntaxNode e = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new LenNode(e, getCurrLine());
+        }
+
+        if (checkMatch(TokenType.FILTER))
+        {
+            SyntaxNode pred = getGoodParse(evalExpr());
+            SyntaxNode lst = getGoodParse(evalExpr());
+            trace("Exit <factor>");
+            return new FilterNode(pred, lst, getCurrLine());
+        }
+
+        if (checkMatch(TokenType.TUPLEPROJ))
+        {
+            match(TokenType.LPAREN, "(");
+
             Token idxTok = getCurrToken();
-            if (!match(TokenType.INT, "integer"))
-                return null;
-
+            match(TokenType.INT, "integer");
             int idx = Integer.parseInt(idxTok.getValue());
 
             SyntaxNode t = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
 
-            if (match(TokenType.RPAREN, ")"))
-                return new TupleProjNode(idx, t, getCurrLine());
+            trace("Exit <factor>");
+            return new TupleProjNode(idx, t, getCurrLine());
         }
-        return null;
-    }
 
-    else if (checkMatch(TokenType.TUPLESWAP))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.TUPLESWAP))
         {
-            fact = getGoodParse(evalExpr());
-            if (match(TokenType.RPAREN, ")"))
-                return new TupleSwapNode(fact, getCurrLine());
+            match(TokenType.LPAREN, "(");
+            SyntaxNode e = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new TupleSwapNode(e, getCurrLine());
         }
-        return null;
-    }
 
-    // ---- String builtins by TokenType (works if lexer maps keywords) ----
-
-    else if (checkMatch(TokenType.STRLEN))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.STRLEN))
         {
-            fact = getGoodParse(evalExpr());
-            if (match(TokenType.RPAREN, ")"))
-                return new StrLenNode(fact, getCurrLine());
+            match(TokenType.LPAREN, "(");
+            SyntaxNode e = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new StrLenNode(e, getCurrLine());
         }
-        return null;
-    }
 
-    else if (checkMatch(TokenType.STRCAT))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.STRCAT))
         {
+            match(TokenType.LPAREN, "(");
             SyntaxNode left = getGoodParse(evalExpr());
             SyntaxNode right = getGoodParse(evalExpr());
-
-            if (match(TokenType.RPAREN, ")"))
-                return new StrCatNode(left, right, getCurrLine());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new StrCatNode(left, right, getCurrLine());
         }
-        return null;
-    }
 
-    else if (checkMatch(TokenType.STREXPLODE))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.STREXPLODE))
         {
-            fact = getGoodParse(evalExpr());
-            if (match(TokenType.RPAREN, ")"))
-                return new ExplodeNode(fact, getCurrLine());
+            match(TokenType.LPAREN, "(");
+            SyntaxNode e = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new ExplodeNode(e, getCurrLine());
         }
-        return null;
-    }
 
-    else if (checkMatch(TokenType.SUBSTR))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.SUBSTR))
         {
+            match(TokenType.LPAREN, "(");
             SyntaxNode s = getGoodParse(evalExpr());
             SyntaxNode start = getGoodParse(evalExpr());
             SyntaxNode len = getGoodParse(evalExpr());
-
-            if (match(TokenType.RPAREN, ")"))
-                return new SubstrNode(s, start, len, getCurrLine());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new SubstrNode(s, start, len, getCurrLine());
         }
-        return null;
-    }
 
-    // map builtin function.
-    else if (checkMatch(TokenType.MAP))
-    {
-        if (match(TokenType.LPAREN, "("))
+        if (checkMatch(TokenType.MAP))
         {
-            fact = getGoodParse(evalExpr());
-            SyntaxNode expr2 = getGoodParse(evalExpr());
-
-            if (match(TokenType.RPAREN, ")"))
-                return new MapNode(fact, expr2, getCurrLine());
+            match(TokenType.LPAREN, "(");
+            SyntaxNode f = getGoodParse(evalExpr());
+            SyntaxNode lst = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new MapNode(f, lst, getCurrLine());
         }
-        return null;
-    }
 
-    // foldr builtin function.
-    else if (checkMatch(TokenType.FOLDR))
-    {
-        if (match(TokenType.LPAREN, "()"))
+        if (checkMatch(TokenType.FOLDR))
         {
+            match(TokenType.LPAREN, "(");
             SyntaxNode func = getGoodParse(evalExpr());
             SyntaxNode ival = getGoodParse(evalExpr());
-            fact = getGoodParse(evalExpr());
-
-            if (match(TokenType.RPAREN, ")"))
-                return new FoldNode(func, ival, fact, false, getCurrLine());
+            SyntaxNode lst = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new FoldNode(func, ival, lst, false, getCurrLine());
         }
-        return null;
-    }
 
-    // foldl builtin function.
-    else if (checkMatch(TokenType.FOLDL))
-    {
-        if (match(TokenType.LPAREN, "()"))
+        if (checkMatch(TokenType.FOLDL))
         {
+            match(TokenType.LPAREN, "(");
             SyntaxNode func = getGoodParse(evalExpr());
             SyntaxNode ival = getGoodParse(evalExpr());
-            fact = getGoodParse(evalExpr());
-
-            if (match(TokenType.RPAREN, ")"))
-                return new FoldNode(func, ival, fact, true, getCurrLine());
+            SyntaxNode lst = getGoodParse(evalExpr());
+            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
+            return new FoldNode(func, ival, lst, true, getCurrLine());
         }
-        return null;
-    }
 
-    // List constructor.
-    else if (checkMatch(TokenType.LBRACK))
-        return getGoodParse(evalListExpr());
-
-    // Parenthsized expression -- could be a call could just be precedence adjusting.
-    else if (checkMatch(TokenType.LPAREN))
-    {
-        SyntaxNode first = getGoodParse(evalExpr());
-
-        if (checkMatch(TokenType.COMMA))
+        if (checkMatch(TokenType.LBRACK))
         {
-            LinkedList<SyntaxNode> elems = new LinkedList<>();
-            elems.add(first);
+            SyntaxNode e = getGoodParse(evalListExpr());
+            trace("Exit <factor>");
+            return e;
+        }
 
-            // We already consumed the first comma. Now parse the remaining elements.
-            SyntaxNode nxt = getGoodParse(evalExpr());
-            elems.add(nxt);
+        if (checkMatch(TokenType.LPAREN))
+        {
+            SyntaxNode first = getGoodParse(evalExpr());
 
-            while (checkMatch(TokenType.COMMA))
+            if (checkMatch(TokenType.COMMA))
             {
-                SyntaxNode more = getGoodParse(evalExpr());
-                elems.add(more);
+                LinkedList<SyntaxNode> elems = new LinkedList<>();
+                elems.add(first);
+
+                SyntaxNode nxt = getGoodParse(evalExpr());
+                elems.add(nxt);
+
+                while (checkMatch(TokenType.COMMA))
+                    elems.add(getGoodParse(evalExpr()));
+
+                match(TokenType.RPAREN, ")");
+                trace("Exit <factor>");
+                return new TupleNode(elems, getCurrLine());
             }
 
             match(TokenType.RPAREN, ")");
-            return new TupleNode(elems, getCurrLine());
+
+            if (checkMatch(TokenType.LPAREN))
+            {
+                SyntaxNode call = handleCall(first);
+                trace("Exit <factor>");
+                return call;
+            }
+
+            trace("Exit <factor>");
+            return first;
         }
 
-        match(TokenType.RPAREN, ")");
-
-        // Is this a function call?
-        if (checkMatch(TokenType.LPAREN))
-            return handleCall(first);
-
-        return first;
-    }
-
-    // Handle the literals.
-    else if (tokenIs(TokenType.INT) || tokenIs(TokenType.REAL)
-            || tokenIs(TokenType.TRUE) || tokenIs(TokenType.FALSE)
-            || tokenIs(TokenType.STRING))
-    {
-        fact = new TokenNode(getCurrToken(), getCurrLine());
-        nextToken();
-        return fact;
-    }
-
-    // ---- String builtin fallback when lexer returns ID(...) ----
-    else if (tokenIs(TokenType.ID) && isStringBuiltinName(getCurrToken().getValue()))
-    {
-        String name = getCurrToken().getValue();
-        nextToken(); // consume the ID
-
-        if (!match(TokenType.LPAREN, "("))
-            return null;
-
-        if (name.equals("strlen"))
+        if (tokenIs(TokenType.INT) || tokenIs(TokenType.REAL)
+                || tokenIs(TokenType.TRUE) || tokenIs(TokenType.FALSE)
+                || tokenIs(TokenType.STRING))
         {
-            SyntaxNode e = getGoodParse(evalExpr());
-            match(TokenType.RPAREN, ")");
-            return new StrLenNode(e, getCurrLine());
+            fact = new TokenNode(getCurrToken(), getCurrLine());
+            nextToken();
+            trace("Exit <factor>");
+            return fact;
         }
-        else if (name.equals("explode"))
+
+        if (tokenIs(TokenType.ID) && isStringBuiltinName(getCurrToken().getValue()))
         {
-            SyntaxNode e = getGoodParse(evalExpr());
-            match(TokenType.RPAREN, ")");
-            return new ExplodeNode(e, getCurrLine());
-        }
-        else if (name.equals("strcat"))
-        {
-            SyntaxNode l = getGoodParse(evalExpr());
-            SyntaxNode r = getGoodParse(evalExpr());
-            match(TokenType.RPAREN, ")");
-            return new StrCatNode(l, r, getCurrLine());
-        }
-        else // substr
-        {
+            String name = getCurrToken().getValue();
+            nextToken();
+
+            match(TokenType.LPAREN, "(");
+
+            if ("strlen".equals(name))
+            {
+                SyntaxNode e = getGoodParse(evalExpr());
+                match(TokenType.RPAREN, ")");
+                trace("Exit <factor>");
+                return new StrLenNode(e, getCurrLine());
+            }
+
+            if ("explode".equals(name))
+            {
+                SyntaxNode e = getGoodParse(evalExpr());
+                match(TokenType.RPAREN, ")");
+                trace("Exit <factor>");
+                return new ExplodeNode(e, getCurrLine());
+            }
+
+            if ("strcat".equals(name))
+            {
+                SyntaxNode l = getGoodParse(evalExpr());
+                SyntaxNode r = getGoodParse(evalExpr());
+                match(TokenType.RPAREN, ")");
+                trace("Exit <factor>");
+                return new StrCatNode(l, r, getCurrLine());
+            }
+
             SyntaxNode s = getGoodParse(evalExpr());
             SyntaxNode start = getGoodParse(evalExpr());
             SyntaxNode len = getGoodParse(evalExpr());
             match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
             return new SubstrNode(s, start, len, getCurrLine());
         }
-    }
 
-    // ---- Tuple builtin fallback when lexer returns ID(...) ----
-    else if (tokenIs(TokenType.ID) && isTupleBuiltinName(getCurrToken().getValue()))
-    {
-        String name = getCurrToken().getValue();
-        nextToken(); // consume the ID
-
-        if (!match(TokenType.LPAREN, "("))
-            return null;
-
-        if (name.equals("swap"))
+        if (tokenIs(TokenType.ID) && isTupleBuiltinName(getCurrToken().getValue()))
         {
+            String name = getCurrToken().getValue();
+            nextToken();
+
+            match(TokenType.LPAREN, "(");
+
+            if ("swap".equals(name))
+            {
+                SyntaxNode t = getGoodParse(evalExpr());
+                match(TokenType.RPAREN, ")");
+                trace("Exit <factor>");
+                return new TupleSwapNode(t, getCurrLine());
+            }
+
+            if ("proj".equals(name))
+            {
+                Token idxTok = getCurrToken();
+                match(TokenType.INT, "integer");
+                int idx = Integer.parseInt(idxTok.getValue());
+
+                SyntaxNode t = getGoodParse(evalExpr());
+                match(TokenType.RPAREN, ")");
+                trace("Exit <factor>");
+                return new TupleProjNode(idx, t, getCurrLine());
+            }
+
             SyntaxNode t = getGoodParse(evalExpr());
             match(TokenType.RPAREN, ")");
-            return new TupleSwapNode(t, getCurrLine());
-        }
-        else if (name.equals("proj"))
-        {
-            Token idxTok = getCurrToken();
-            if (!match(TokenType.INT, "integer"))
-                return null;
-
-            int idx = Integer.parseInt(idxTok.getValue());
-
-            SyntaxNode t = getGoodParse(evalExpr());
-            match(TokenType.RPAREN, ")");
-            return new TupleProjNode(idx, t, getCurrLine());
-        }
-        else // destruct
-        {
-            SyntaxNode t = getGoodParse(evalExpr());
-            match(TokenType.RPAREN, ")");
+            trace("Exit <factor>");
             return new TupleDestructNode(t, getCurrLine());
         }
+
+        if (tokenIs(TokenType.ID))
+        {
+            Token idTok = getCurrToken();
+            nextToken();
+
+            fact = new TokenNode(idTok, getCurrLine());
+
+            if (checkMatch(TokenType.LPAREN))
+            {
+                SyntaxNode call = handleCall(fact);
+                trace("Exit <factor>");
+                return call;
+            }
+
+            trace("Exit <factor>");
+            return fact;
+        }
+
+        trace("Exit <factor>");
+        return fact;
     }
 
-    // Handle an identifier could be:
-    //  - just the identifier
-    //  - a function call.
-    else if (tokenIs(TokenType.ID))
+    private boolean isStringBuiltinName(String s)
     {
-        Token module = getCurrToken();
-        nextToken();
-
-        fact = new TokenNode(module, getCurrLine());
-
-        if (checkMatch(TokenType.LPAREN))
-            return handleCall(fact);
+        return "strlen".equals(s) || "strcat".equals(s) || "explode".equals(s) || "substr".equals(s);
     }
 
-    trace("Exit <factor>");
-    return fact;
-}
-
-/**
- * True if the identifier should be treated as a string builtin even when lexed as ID.
- */
-private boolean isStringBuiltinName(String s)
-{
-    return "strlen".equals(s) || "strcat".equals(s) || "explode".equals(s) || "substr".equals(s);
-}
-
-private boolean isTupleBuiltinName(String s)
-{
-    return "proj".equals(s) || "swap".equals(s) || "destruct".equals(s);
-}
-
+    private boolean isTupleBuiltinName(String s)
+    {
+        return "proj".equals(s) || "swap".equals(s) || "destruct".equals(s);
+    }
 
     /**
-     * Method to handle the listExpr non-terminal.
-     * <listExpr> -> [ <expr> {, <expr>} ]
-     *
-     * @throws ParseException when parsing fails.
+     * <listExpr> -> ] | <expr> { , <expr> } ]
+     * Assumes leading left bracket already consumed.
      */
     private SyntaxNode evalListExpr() throws ParseException
     {
         LinkedList<SyntaxNode> entries = new LinkedList<>();
-        ListNode lst = null;
-        SyntaxNode expr = null;
 
         trace("Enter <listExpr>");
 
-        // We could have an empty list.
         if (checkMatch(TokenType.RBRACK))
         {
-            lst = new ListNode(entries, getCurrLine());
-            return lst;
+            trace("Exit <listExpr>");
+            return new ListNode(entries, getCurrLine());
         }
 
-        expr = getGoodParse(evalExpr());
-        entries.add(expr);
+        entries.add(getGoodParse(evalExpr()));
 
         while (checkMatch(TokenType.COMMA))
-        {
-            expr = getGoodParse(evalExpr());
-            entries.add(expr);
-        }
+            entries.add(getGoodParse(evalExpr()));
 
-        if (match(TokenType.RBRACK, "]"))
-            lst = new ListNode(entries, getCurrLine());
+        match(TokenType.RBRACK, "]");
 
         trace("Exit <listExpr>");
-        return lst;
+        return new ListNode(entries, getCurrLine());
     }
 
-    /***********
-     * Methods for handling a specific rule of a non-terminal
-     ***********/
-
     /**
-     * This method handles a value definition. <id> := <expr>
+     * Handles a value definition: <id> := <expr>
      */
     private SyntaxNode handleValues() throws ParseException
     {
         Token id = getCurrToken();
-        SyntaxNode expr;
 
-        if (match(TokenType.ID, "identifier"))
-        {
-            if (match(TokenType.ASSIGN, ":="))
-            {
-                expr = evalExpr();
-                return new ValNode(id, expr, getCurrLine());
-            }
-        }
+        match(TokenType.ID, "identifier");
+        match(TokenType.ASSIGN, ":=");
 
-        return null;
+        SyntaxNode expr = getGoodParse(evalExpr());
+        return new ValNode(id, expr, getCurrLine());
     }
 
     /**
-     * Handle a lambda exrpession definition <id> => <expr>
+     * Handles a lambda expression definition: <id> -> <expr>
      */
     private SyntaxNode handleLambdaExpr() throws ParseException
     {
         Token var = getCurrToken();
-        SyntaxNode expr;
 
-        if (match(TokenType.ID, "identifier"))
-        {
-            if (match(TokenType.TO, "=>"))
-            {
-                expr = evalExpr();
-                return new LambdaNode(var, expr, getCurrLine());
-            }
-        }
+        match(TokenType.ID, "identifier");
+        match(TokenType.TO, "->");
 
-        return null;
+        SyntaxNode expr = getGoodParse(evalExpr());
+        return new LambdaNode(var, expr, getCurrLine());
     }
 
     /**
-     * This method handles conditionals. if <expr> then <expr> else <expr>
+     * Handles conditionals: if <expr> then <expr> else <expr>
      */
     private SyntaxNode handleIf() throws ParseException
     {
-        SyntaxNode cond;
-        SyntaxNode trueBranch;
-        SyntaxNode falseBranch;
+        SyntaxNode cond = getGoodParse(evalExpr());
 
-        cond = getGoodParse(evalExpr());
+        match(TokenType.THEN, "then");
+        SyntaxNode trueBranch = getGoodParse(evalExpr());
 
-        if (match(TokenType.THEN, "then"))
-        {
-            trueBranch = getGoodParse(evalExpr());
-            if (match(TokenType.ELSE, "else"))
-            {
-                falseBranch = getGoodParse(evalExpr());
-                return new IfNode(cond, trueBranch, falseBranch, getCurrLine());
-            }
-        }
-        return null;
+        match(TokenType.ELSE, "else");
+        SyntaxNode falseBranch = getGoodParse(evalExpr());
+
+        return new IfNode(cond, trueBranch, falseBranch, getCurrLine());
     }
 
     /**
-     * This method handles a let expression <id> := <expr> in <expr>
+     * Handles let expressions: let <id> := <expr> in <expr>
      */
     private SyntaxNode handleLet() throws ParseException
     {
+        trace("Enter handleLet");
+
         Token var = getCurrToken();
-        SyntaxNode varExpr;
-        SyntaxNode expr;
 
-        trace("enter handleLet");
+        match(TokenType.ID, "identifier");
+        match(TokenType.ASSIGN, ":=");
 
-        if (match(TokenType.ID, "identifier"))
-        {
-            if (match(TokenType.ASSIGN, ":="))
-            {
-                varExpr = getGoodParse(evalExpr());
+        SyntaxNode varExpr = getGoodParse(evalExpr());
 
-                if (match(TokenType.IN, "in"))
-                {
-                    expr = getGoodParse(evalExpr());
-                    return new LetNode(var, varExpr, expr, getCurrLine());
-                }
-            }
-        }
-        trace("exit handleLet");
-        logError("Missing value.");
-        throw new ParseException("Malformed let expression");
+        match(TokenType.IN, "in");
+        SyntaxNode expr = getGoodParse(evalExpr());
+
+        trace("Exit handleLet");
+        return new LetNode(var, varExpr, expr, getCurrLine());
     }
 
     /**
-     * Handles a function argument. We assume that the leading paren has
-     * already been stripped off.
+     * Handles a function call argument.
+     * Assumes the leading left paren has already been consumed.
      */
     private SyntaxNode handleCall(SyntaxNode fun) throws ParseException
     {
