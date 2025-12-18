@@ -210,6 +210,11 @@ public class Token
         case IN:
             return "IN";
 
+        case MATCH:
+            return "MATCH";
+        case WITH:
+            return "WITH";
+
         case LBRACK:
             return "LBRACK";
         case RBRACK:
@@ -243,6 +248,8 @@ public class Token
 
         case PIPE:
             return "PIPE";
+        case BAR:
+            return "BAR";
         case COMPOSE:
             return "COMPOSE";
 

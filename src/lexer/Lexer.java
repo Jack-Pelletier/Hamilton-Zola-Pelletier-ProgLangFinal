@@ -67,6 +67,24 @@ public class Lexer
 
         stream.advanceToNonBlank();
 
+        // NOTE:
+        // Some terminals / encodings will turn the composition operator '∘'
+        // into '?' (or a CharacterStream may classify '?' as LETTER).
+        // We intercept both characters here so composition works reliably.
+        //
+        // Also: some environments decode unknown UTF-8 as the replacement
+        // character '�' (U+FFFD). Many error printers display that as '?'.
+        // We intercept that too.
+        if (stream.getCurrentClass() != CharacterClass.END
+                && (stream.getCurrentChar() == '∘'
+                    || stream.getCurrentChar() == '?'
+                    || stream.getCurrentChar() == '\uFFFD'))
+        {
+            stream.advance();
+            stream.skipNextAdvance();
+            return new Token(TokenType.COMPOSE, "∘");
+        }
+
         switch (stream.getCurrentClass())
         {
         // The state where we are recognizing identifiers.
@@ -357,6 +375,12 @@ public class Lexer
             return new Token(TokenType.RBRACK, "]");
 
         case '∘':
+        case '?':
+        case '\uFFFD':
+            // Treat Unicode composition operator (and common mangled variants)
+            // as the COMPOSE token.
+            stream.advance();
+            stream.skipNextAdvance();
             return new Token(TokenType.COMPOSE, "∘");
 
         case '|':
@@ -366,7 +390,7 @@ public class Lexer
                 return new Token(TokenType.PIPE, "|>");
 
             stream.skipNextAdvance();
-            return new Token(TokenType.UNKNOWN, "|");
+            return new Token(TokenType.BAR, "|");
 
         default:
             return new Token(TokenType.UNKNOWN, String.valueOf(stream.getCurrentChar()));
@@ -417,6 +441,13 @@ public class Lexer
 
         keywords.put("proj", TokenType.TUPLEPROJ);
         keywords.put("swap", TokenType.TUPLESWAP);
+
+        keywords.put("match", TokenType.MATCH);
+        keywords.put("with", TokenType.WITH);
+
+        // ML-style function composition operator (ASCII form).
+        // This makes: (f o g)(3) work exactly like: (f ∘ g)(3)
+        keywords.put("o", TokenType.COMPOSE);
     }
 
     /**

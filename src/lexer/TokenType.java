@@ -317,9 +317,24 @@ public enum TokenType
     PIPE,
 
     /**
+     * Match case bar token (e.g., match x with | p -> e | q -> f).
+     */
+    BAR,
+
+    /**
      * Function composition operator token (e.g., f ∘ g).
      */
     COMPOSE,
+
+    /**
+     * The match keyword.
+     */
+    MATCH,
+
+    /**
+     * The with keyword.
+     */
+    WITH,
 
     /**
      * The end of the file token.
