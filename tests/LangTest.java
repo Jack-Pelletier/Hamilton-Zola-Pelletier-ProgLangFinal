@@ -60,7 +60,7 @@ public class LangTest
         catch (EvaluationException ex)
         {
             ex.printStackTrace(); // FULL STACK TRACE
-            throw new AssertionError(name + ": Unexpected Exception.", ex);
+            throw new RuntimeException(ex);
         }
 
         assertEquals(name + ":", expected, res.toString());
